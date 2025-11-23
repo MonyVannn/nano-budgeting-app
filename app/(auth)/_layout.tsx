@@ -1,20 +1,23 @@
-import { AppColors } from "@/constants/Colors";
+import { useTheme } from "@/constants/ThemeContext";
 import { Stack } from "expo-router";
 
 export default function AuthLayout() {
+  const { theme } = useTheme();
+
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: AppColors.backgroundDark,
+          backgroundColor: theme.background,
         },
-        headerTintColor: AppColors.text,
+        headerTintColor: theme.text,
         headerTitleStyle: {
           fontWeight: "600",
         },
         contentStyle: {
-          backgroundColor: AppColors.background,
+          backgroundColor: theme.background,
         },
+        headerShadowVisible: false,
       }}
     >
       <Stack.Screen
@@ -28,7 +31,9 @@ export default function AuthLayout() {
         name="sign-up"
         options={{
           title: "Sign Up",
-          headerShown: false,
+          presentation: "modal",
+          headerShown: true,
+          headerBackTitle: "Back",
         }}
       />
     </Stack>

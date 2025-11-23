@@ -4,7 +4,7 @@ import {
   ThemeProvider as NavigationThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "react-native-reanimated";
@@ -15,12 +15,12 @@ import { useAuthStore } from "@/store";
 
 export {
   // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
+  ErrorBoundary
 } from "expo-router";
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: "(tabs)",
+  // Don't set initialRouteName - let auth state determine the route
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -64,6 +64,20 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { theme } = useTheme();
+  const { user, session } = useAuthStore();
+
+
+  // Handle navigation when auth state changes
+  useEffect(() => {
+    if (!user || !session) {
+      // User is signed out - navigate to sign-in screen
+      // Use setTimeout to ensure this runs after state updates
+      const timer = setTimeout(() => {
+        router.replace("/(auth)/sign-in");
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [user, session]);
 
   // Custom theme using current theme colors
   const customTheme = {
@@ -93,8 +107,15 @@ function RootLayoutNav() {
           },
         }}
       >
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* Always define all screens - Expo Router handles routing */}
+        <Stack.Screen
+          name="(auth)"
+          options={{ headerShown: false, title: "" }}
+        />
+        <Stack.Screen
+          name="(tabs)"
+          options={{ headerShown: false, title: "" }}
+        />
         <Stack.Screen name="modal" options={{ presentation: "modal" }} />
       </Stack>
     </NavigationThemeProvider>

@@ -9,6 +9,7 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   isInitialized: boolean;
+  explicitlySignedOut: boolean; // Track if user explicitly signed out
 
   // Actions
   initialize: () => Promise<void>;
@@ -25,30 +26,111 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isLoading: false,
       isInitialized: false,
+      explicitlySignedOut: false,
 
       initialize: async () => {
         try {
           set({ isLoading: true });
 
-          // Get initial session
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
+          // Check if user explicitly signed out - if so, don't restore session
+          const state = get();
+          if (state.explicitlySignedOut) {
+            console.log("User explicitly signed out, skipping session restoration");
+            // Clear Supabase storage to be sure
+            await supabase.auth.signOut();
+            set({
+              session: null,
+              user: null,
+              isInitialized: true,
+              explicitlySignedOut: false, // Reset flag after initialization
+            });
+            return;
+          }
+
+          // Always clear state first to prevent stale data
           set({
-            session,
-            user: session?.user ?? null,
-            isInitialized: true,
+            session: null,
+            user: null,
           });
 
-          // Listen for auth changes
-          supabase.auth.onAuthStateChange((_event, session) => {
+          // Get initial session from Supabase (not from storage)
+          const {
+            data: { session },
+            error,
+          } = await supabase.auth.getSession();
+
+          if (error) {
+            console.error("Error getting session:", error);
+            // Clear any stale persisted data
             set({
-              session,
-              user: session?.user ?? null,
+              session: null,
+              user: null,
+              isInitialized: true,
             });
+          } else {
+            // Verify session is actually valid by checking if it has a user
+            // and the session hasn't expired
+            if (session && session.user) {
+              // Check if session is expired
+              const now = Math.floor(Date.now() / 1000);
+              if (session.expires_at && session.expires_at < now) {
+                // Session expired, sign out
+                await supabase.auth.signOut();
+                set({
+                  session: null,
+                  user: null,
+                  isInitialized: true,
+                });
+              } else {
+                // Verify the session is actually valid by checking the user
+                set({
+                  session: session,
+                  user: session.user,
+                  isInitialized: true,
+                });
+              }
+            } else {
+              // No valid session
+              set({
+                session: null,
+                user: null,
+                isInitialized: true,
+              });
+            }
+          }
+
+          // Listen for auth changes - but only update if not explicitly signed out
+          supabase.auth.onAuthStateChange((_event, session) => {
+            const currentState = get();
+            // Don't restore session if user explicitly signed out
+            if (currentState.explicitlySignedOut && !session) {
+              console.log("Auth state changed but user explicitly signed out, ignoring");
+              return;
+            }
+            
+            // Only update if we have a valid session or if it's a sign out event
+            if (session && session.user) {
+              set({
+                session: session,
+                user: session.user,
+                explicitlySignedOut: false, // Reset flag on successful auth
+              });
+            } else if (_event === 'SIGNED_OUT') {
+              set({
+                session: null,
+                user: null,
+                explicitlySignedOut: true,
+              });
+            }
           });
         } catch (error) {
           console.error("Auth initialization error:", error);
+          // On error, clear state
+          set({
+            session: null,
+            user: null,
+            isInitialized: true,
+          });
         } finally {
           set({ isLoading: false });
         }
@@ -67,6 +149,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             session: data.session,
             user: data.user,
+            explicitlySignedOut: false, // Reset flag on successful sign in
           });
         } catch (error) {
           console.error("Sign in error:", error);
@@ -89,6 +172,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             session: data.session,
             user: data.user,
+            explicitlySignedOut: false, // Reset flag on successful sign up
           });
         } catch (error) {
           console.error("Sign up error:", error);
@@ -101,14 +185,66 @@ export const useAuthStore = create<AuthState>()(
       signOut: async () => {
         try {
           set({ isLoading: true });
-          await supabase.auth.signOut();
+          
+          // Mark as explicitly signed out BEFORE clearing
+          set({ explicitlySignedOut: true });
+          
+          // Sign out from Supabase (this clears Supabase's internal storage)
+          const { error } = await supabase.auth.signOut();
+          
+          // Clear Supabase storage keys directly to be absolutely sure
+          try {
+            // Supabase stores auth data in AsyncStorage with specific keys
+            // Clear common Supabase auth storage keys
+            const commonKeys = [
+              'sb-auth-token',
+              'supabase.auth.token',
+            ];
+            
+            for (const key of commonKeys) {
+              try {
+                await AsyncStorage.removeItem(key);
+              } catch (e) {
+                // Ignore errors for individual keys
+              }
+            }
+            
+            // Also try to get all keys and clear Supabase-related ones
+            const allKeys = await AsyncStorage.getAllKeys();
+            for (const key of allKeys) {
+              if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
+                try {
+                  await AsyncStorage.removeItem(key);
+                } catch (e) {
+                  // Ignore errors
+                }
+              }
+            }
+          } catch (storageError) {
+            console.warn("Error clearing Supabase storage:", storageError);
+          }
+          
+          // Clear state immediately regardless of Supabase response
           set({
             session: null,
             user: null,
+            explicitlySignedOut: true,
           });
+          
+          if (error) {
+            console.error("Sign out error:", error);
+            // Don't throw - we've cleared local state anyway
+          }
+          
+          console.log("Sign out completed - state cleared");
         } catch (error) {
           console.error("Sign out error:", error);
-          throw error;
+          // Even if signOut fails, clear local state
+          set({
+            session: null,
+            user: null,
+            explicitlySignedOut: true,
+          });
         } finally {
           set({ isLoading: false });
         }
@@ -122,11 +258,13 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: "auth-storage",
+      name: "auth-storage-v2", // Changed name to avoid old persisted data
       storage: createJSONStorage(() => AsyncStorage),
+      // Don't persist session/user - they can be stale
+      // Persist isInitialized and explicitlySignedOut to track auth state
       partialize: (state) => ({
-        session: state.session,
-        user: state.user,
+        isInitialized: state.isInitialized,
+        explicitlySignedOut: state.explicitlySignedOut,
       }),
     }
   )

@@ -1,14 +1,89 @@
-import { Text, View } from "@/components/Themed";
+import { AnimatedTabScreen } from "@/components/AnimatedTabScreen";
+import { AnimatedTitle } from "@/components/AnimatedTitle";
+import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore } from "@/store";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { Pressable, ScrollView, StyleSheet, Switch } from "react-native";
+import { router } from "expo-router";
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuthStore();
   const { theme, themeMode, toggleTheme } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Handle normal sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      // Root layout will automatically navigate to sign-in when user becomes null
+      // But we also navigate here as a backup
+      router.replace("/(auth)/sign-in");
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      // Even if sign out fails, try to navigate
+      router.replace("/(auth)/sign-in");
+    }
+  };
+
+  // Dev helper: allow forcing sign out from Settings when running in dev mode
+  const handleForceSignOut = async () => {
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+      
+      // 1. Clear Zustand store (this sets explicitlySignedOut flag)
+      await signOut();
+      
+      // 2. Clear Supabase storage directly
+      await supabase.auth.signOut();
+      
+      // 3. Clear all AsyncStorage keys related to auth
+      const allKeys = await AsyncStorage.getAllKeys();
+      for (const key of allKeys) {
+        if (
+          key.includes("auth") ||
+          key.includes("supabase") ||
+          key.includes("sb-") ||
+          key.startsWith("@supabase")
+        ) {
+          await AsyncStorage.removeItem(key);
+          console.log("Cleared storage key:", key);
+        }
+      }
+      
+      // 4. Clear Zustand persisted storage
+      await AsyncStorage.removeItem("auth-storage");
+      await AsyncStorage.removeItem("auth-storage-v2");
+      
+      // 5. Force clear Supabase's internal storage (stored in AsyncStorage)
+      try {
+        const allKeys = await AsyncStorage.getAllKeys();
+        for (const key of allKeys) {
+          if (
+            key.includes("supabase") ||
+            key.includes("sb-") ||
+            key.startsWith("@supabase")
+          ) {
+            await AsyncStorage.removeItem(key);
+            console.log("Cleared Supabase storage key:", key);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not clear Supabase storage:", e);
+      }
+      
+      console.log("Force sign out completed - all auth data cleared");
+      
+      // Force navigation to auth screen
+      router.replace("/(auth)/sign-in");
+    } catch (e) {
+      console.error("Force sign out failed:", e);
+    }
+  };
 
   const handleThemeToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -20,12 +95,22 @@ export default function SettingsScreen() {
       flex: 1,
       backgroundColor: theme.background,
     },
+    stickyHeader: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 10,
+      paddingBottom: 16,
+      paddingHorizontal: 20,
+      borderBottomWidth: 0.5,
+      backgroundColor: theme.background,
+    },
     header: {
-      padding: 20,
-      paddingTop: 10,
+      gap: 8,
     },
     title: {
-      fontSize: 28,
+      fontSize: 24,
       fontWeight: "700",
       color: theme.text,
     },
@@ -111,13 +196,39 @@ export default function SettingsScreen() {
     },
   });
 
+  const headerHeight = Platform.OS === "ios" ? insets.top + 80 : 100;
+  const stickyHeaderStyle = [
+    styles.stickyHeader,
+    { paddingTop: Platform.OS === "ios" ? insets.top + 20 : 40 },
+  ];
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
+    <AnimatedTabScreen screenIndex={3}>
+      <View style={styles.container}>
+        {/* Sticky Header */}
+      <View style={stickyHeaderStyle}>
+        <View style={styles.header}>
+          <AnimatedTitle pathMatch="settings" style={styles.title}>
+            Settings
+          </AnimatedTitle>
+          {__DEV__ && (
+            <Pressable
+              onPress={handleForceSignOut}
+              style={{ marginTop: 8, alignSelf: "flex-end" }}
+            >
+              <Text style={{ color: theme.primary, fontWeight: "600" }}>
+                DEV: Force Sign Out
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
-      <ScrollView style={styles.content}>
+      {/* Scrollable Content */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingTop: headerHeight }}
+      >
         {/* Appearance Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Appearance</Text>
@@ -165,7 +276,7 @@ export default function SettingsScreen() {
                 tint={theme.blurTint}
                 style={styles.dangerButton}
               >
-                <Pressable style={styles.dangerButtonInner} onPress={signOut}>
+                <Pressable style={styles.dangerButtonInner} onPress={handleSignOut}>
                   <FontAwesome name="sign-out" size={20} color={theme.error} />
                   <Text style={styles.dangerButtonText}>Sign Out</Text>
                 </Pressable>
@@ -186,5 +297,6 @@ export default function SettingsScreen() {
         )}
       </ScrollView>
     </View>
+    </AnimatedTabScreen>
   );
 }

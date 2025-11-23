@@ -113,8 +113,8 @@ export const LightTheme = {
   tabIconSelected: RobinhoodPalette.robinNeon,
   tabBar: RobinhoodPalette.lightSurface,
 
-  border: RobinhoodPalette.lightBorder,
-  divider: RobinhoodPalette.lightDivider,
+  border: "#d1d5db", // Darker border for better visibility on light background
+  divider: "#d1d5db", // Darker divider for better visibility on light background
   shadow: "rgba(0, 0, 0, 0.1)",
 
   indicatorGreen: RobinhoodPalette.brightGreen,

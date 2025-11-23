@@ -1,19 +1,29 @@
+import { AnimatedTabScreen } from "@/components/AnimatedTabScreen";
+import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function DashboardScreen() {
   const [incomeExpanded, setIncomeExpanded] = useState(false);
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   // Animated values for income expansion
   const heightAnimation = useSharedValue(0);
@@ -70,9 +80,18 @@ export default function DashboardScreen() {
       flex: 1,
       backgroundColor: theme.background,
     },
+    stickyHeader: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 10,
+      paddingBottom: 16,
+      paddingHorizontal: 20,
+      borderBottomWidth: 0.5,
+      backgroundColor: theme.background,
+    },
     header: {
-      padding: 20,
-      alignItems: "center",
       gap: 8,
     },
     title: {
@@ -169,7 +188,6 @@ export default function DashboardScreen() {
     summaryBudgetColumn: {
       flexDirection: "row",
       width: 150,
-      fontSize: 12,
       gap: 10,
     },
     summaryColumnLeft: {
@@ -208,6 +226,9 @@ export default function DashboardScreen() {
       borderBottomWidth: 1,
       borderBottomColor: theme.divider,
     },
+    categoryItemLast: {
+      borderBottomWidth: 0,
+    },
     categoryName: {
       fontSize: 14,
       fontWeight: "500",
@@ -242,7 +263,7 @@ export default function DashboardScreen() {
     },
     fab: {
       position: "absolute",
-      bottom: 32,
+      bottom: 50, // Account for tab bar height
       right: 20,
       width: 56,
       height: 56,
@@ -268,9 +289,9 @@ export default function DashboardScreen() {
     },
   });
 
-  const CategoryItem = ({ name, budgeted, left }: any) => (
+  const CategoryItem = ({ name, budgeted, left, isLast }: any) => (
     <TouchableOpacity
-      style={styles.categoryItem}
+      style={[styles.categoryItem, isLast && styles.categoryItemLast]}
       onPress={handleCategoryPress}
       activeOpacity={1}
     >
@@ -291,11 +312,31 @@ export default function DashboardScreen() {
     </TouchableOpacity>
   );
 
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}></View>
+  const headerHeight = Platform.OS === "ios" ? insets.top + 80 : 100;
+  const stickyHeaderStyle = [
+    styles.stickyHeader,
+    { paddingTop: Platform.OS === "ios" ? insets.top + 20 : 40 },
+  ];
 
-      {/* Income Dropdown */}
+  return (
+    <AnimatedTabScreen screenIndex={0}>
+      <View style={styles.container}>
+        {/* Sticky Header */}
+      <View style={stickyHeaderStyle}>
+        <View style={styles.header}>
+          <AnimatedTitle pathMatch="/(tabs)" style={styles.title}>
+            Dashboard
+          </AnimatedTitle>
+        </View>
+      </View>
+
+      {/* Scrollable Content */}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingTop: headerHeight }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Income Dropdown */}
       <BlurView intensity={50} tint={theme.blurTint} style={styles.incomeCard}>
         <TouchableOpacity
           onPress={() => {
@@ -383,12 +424,18 @@ export default function DashboardScreen() {
         style={styles.categoryList}
       >
         {categories.map((cat, index) => (
-          <CategoryItem key={index} {...cat} />
+          <CategoryItem
+            key={index}
+            {...cat}
+            isLast={index === categories.length - 1}
+          />
         ))}
       </BlurView>
 
-      <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
+      </ScrollView>
 
+      {/* FAB Button */}
       <BlurView intensity={50} tint={theme.blurTint} style={styles.fab}>
         <TouchableOpacity
           style={styles.fabTouchable}
@@ -400,6 +447,7 @@ export default function DashboardScreen() {
           <Text style={styles.fabIcon}>+</Text>
         </TouchableOpacity>
       </BlurView>
-    </ScrollView>
+    </View>
+    </AnimatedTabScreen>
   );
 }
