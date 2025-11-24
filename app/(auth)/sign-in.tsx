@@ -161,7 +161,7 @@ export default function SignInScreen() {
           <Text style={styles.subtitle}>Sign in to manage your budget</Text>
         </View>
 
-        <BlurView intensity={50} tint={theme.blurTint} style={styles.formCard}>
+        <BlurView intensity={0} tint={theme.blurTint} style={styles.formCard}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput

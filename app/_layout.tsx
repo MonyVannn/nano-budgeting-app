@@ -15,7 +15,7 @@ import { useAuthStore } from "@/store";
 
 export {
   // Catch any errors thrown by the Layout component.
-  ErrorBoundary
+  ErrorBoundary,
 } from "expo-router";
 
 export const unstable_settings = {
@@ -65,7 +65,6 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { theme } = useTheme();
   const { user, session } = useAuthStore();
-
 
   // Handle navigation when auth state changes
   useEffect(() => {
@@ -117,6 +116,22 @@ function RootLayoutNav() {
           options={{ headerShown: false, title: "" }}
         />
         <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+        <Stack.Screen
+          name="add-transaction"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+            animation: "slide_from_bottom",
+          }}
+        />
+        <Stack.Screen
+          name="add-transaction-details"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+            animation: "slide_from_bottom",
+          }}
+        />
       </Stack>
     </NavigationThemeProvider>
   );

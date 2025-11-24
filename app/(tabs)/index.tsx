@@ -1,9 +1,11 @@
 import { AnimatedTabScreen } from "@/components/AnimatedTabScreen";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
+import { FABButton } from "@/components/FABButton";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Platform,
@@ -104,14 +106,16 @@ export default function DashboardScreen() {
       fontWeight: "500",
       color: theme.textSecondary,
     },
-    incomeCard: {
+    incomeCardWrapper: {
       marginHorizontal: 16,
       marginBottom: 16,
-      padding: 20,
       borderRadius: 12,
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+    },
+    incomeCard: {
+      padding: 20,
     },
     incomeHeader: {
       flexDirection: "row",
@@ -172,14 +176,16 @@ export default function DashboardScreen() {
       fontWeight: "600",
       color: theme.text,
     },
-    summaryCard: {
+    summaryCardWrapper: {
       marginHorizontal: 16,
       marginBottom: 16,
-      padding: 20,
       borderRadius: 12,
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+    },
+    summaryCard: {
+      padding: 20,
       justifyContent: "space-between",
     },
     summaryColumns: {
@@ -211,13 +217,14 @@ export default function DashboardScreen() {
       fontWeight: "600",
       color: theme.text,
     },
-    categoryList: {
+    categoryListWrapper: {
       marginHorizontal: 16,
       borderRadius: 12,
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
     },
+    categoryList: {},
     categoryItem: {
       padding: 16,
       flexDirection: "row",
@@ -261,32 +268,6 @@ export default function DashboardScreen() {
       fontWeight: "600",
       color: theme.background,
     },
-    fab: {
-      position: "absolute",
-      bottom: 50, // Account for tab bar height
-      right: 20,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      overflow: "hidden",
-      borderWidth: 0.5,
-      borderColor: theme.divider,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.5,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    fabTouchable: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    fabIcon: {
-      fontSize: 32,
-      fontWeight: "300",
-      color: theme.text,
-    },
   });
 
   const CategoryItem = ({ name, budgeted, left, isLast }: any) => (
@@ -322,132 +303,142 @@ export default function DashboardScreen() {
     <AnimatedTabScreen screenIndex={0}>
       <View style={styles.container}>
         {/* Sticky Header */}
-      <View style={stickyHeaderStyle}>
-        <View style={styles.header}>
-          <AnimatedTitle pathMatch="/(tabs)" style={styles.title}>
-            Dashboard
-          </AnimatedTitle>
+        <View style={stickyHeaderStyle}>
+          <View style={styles.header}>
+            <AnimatedTitle pathMatch="/(tabs)" style={styles.title}>
+              Dashboard
+            </AnimatedTitle>
+          </View>
         </View>
-      </View>
 
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingTop: headerHeight }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Income Dropdown */}
-      <BlurView intensity={50} tint={theme.blurTint} style={styles.incomeCard}>
-        <TouchableOpacity
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={{ paddingTop: headerHeight }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Income Dropdown */}
+          <View style={styles.incomeCardWrapper}>
+            <BlurView
+              intensity={50}
+              tint={theme.blurTint}
+              style={styles.incomeCard}
+            >
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setIncomeExpanded(!incomeExpanded);
+                }}
+                activeOpacity={1}
+              >
+                <View style={styles.incomeHeader}>
+                  <View style={styles.incomeLabelContainer}>
+                    <Text style={styles.incomeLabel}>Income</Text>
+                    <Animated.Text
+                      style={[styles.chevron, animatedChevronStyle]}
+                    >
+                      ▼
+                    </Animated.Text>
+                  </View>
+                  <Text style={styles.incomeAmount}>$200.00</Text>
+                </View>
+
+                <Animated.View style={animatedDetailsStyle}>
+                  <View style={styles.incomeDetails}>
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Income</Text>
+                        <View
+                          style={[
+                            styles.indicator,
+                            { backgroundColor: theme.indicatorGreen },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.detailAmount}>$0.00</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Expenses</Text>
+                        <View
+                          style={[
+                            styles.indicator,
+                            { backgroundColor: theme.indicatorRed },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.detailAmount}>-$0.00</Text>
+                    </View>
+                    <View style={[styles.detailRow, styles.detailRowLast]}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Remaining</Text>
+                        <View
+                          style={[
+                            styles.indicator,
+                            { backgroundColor: theme.indicatorGreen },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.detailAmount}>$0.00</Text>
+                    </View>
+                  </View>
+                </Animated.View>
+              </TouchableOpacity>
+            </BlurView>
+          </View>
+
+          {/* Monthly Summary - Two Row Layout */}
+          <View style={styles.summaryCardWrapper}>
+            <BlurView
+              intensity={50}
+              tint={theme.blurTint}
+              style={styles.summaryCard}
+            >
+              <View style={styles.summaryColumns}>
+                <View style={styles.summaryColumnLeft}>
+                  <Text style={styles.columnLabel}>Monthly</Text>
+                  <Text style={styles.columnValue}>8 days left</Text>
+                </View>
+                <View style={styles.summaryBudgetColumn}>
+                  <View style={styles.summaryColumnRight}>
+                    <Text style={styles.columnLabel}>Budgeted</Text>
+                    <Text style={styles.columnValue}>$315.00</Text>
+                  </View>
+                  <View style={styles.summaryColumnRight}>
+                    <Text style={styles.columnLabel}>Left</Text>
+                    <Text style={styles.columnValue}>$315.00</Text>
+                  </View>
+                </View>
+              </View>
+            </BlurView>
+          </View>
+
+          <View style={styles.categoryListWrapper}>
+            <BlurView
+              intensity={50}
+              tint={theme.blurTint}
+              style={styles.categoryList}
+            >
+              {categories.map((cat, index) => (
+                <CategoryItem
+                  key={index}
+                  {...cat}
+                  isLast={index === categories.length - 1}
+                />
+              ))}
+            </BlurView>
+          </View>
+
+          <View style={{ height: 120 }} />
+        </ScrollView>
+
+        {/* FAB Button */}
+        <FABButton
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setIncomeExpanded(!incomeExpanded);
+            router.push("/add-transaction");
           }}
-          activeOpacity={1}
-        >
-          <View style={styles.incomeHeader}>
-            <View style={styles.incomeLabelContainer}>
-              <Text style={styles.incomeLabel}>Income</Text>
-              <Animated.Text style={[styles.chevron, animatedChevronStyle]}>
-                ▼
-              </Animated.Text>
-            </View>
-            <Text style={styles.incomeAmount}>$200.00</Text>
-          </View>
-
-          <Animated.View style={animatedDetailsStyle}>
-            <View style={styles.incomeDetails}>
-              <View style={styles.detailRow}>
-                <View style={styles.detailLeft}>
-                  <Text style={styles.detailLabel}>Income</Text>
-                  <View
-                    style={[
-                      styles.indicator,
-                      { backgroundColor: theme.indicatorGreen },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.detailAmount}>$0.00</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <View style={styles.detailLeft}>
-                  <Text style={styles.detailLabel}>Expenses</Text>
-                  <View
-                    style={[
-                      styles.indicator,
-                      { backgroundColor: theme.indicatorRed },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.detailAmount}>-$0.00</Text>
-              </View>
-              <View style={[styles.detailRow, styles.detailRowLast]}>
-                <View style={styles.detailLeft}>
-                  <Text style={styles.detailLabel}>Remaining</Text>
-                  <View
-                    style={[
-                      styles.indicator,
-                      { backgroundColor: theme.indicatorGreen },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.detailAmount}>$0.00</Text>
-              </View>
-            </View>
-          </Animated.View>
-        </TouchableOpacity>
-      </BlurView>
-
-      {/* Monthly Summary - Two Row Layout */}
-      <BlurView intensity={50} tint={theme.blurTint} style={styles.summaryCard}>
-        <View style={styles.summaryColumns}>
-          <View style={styles.summaryColumnLeft}>
-            <Text style={styles.columnLabel}>Monthly</Text>
-            <Text style={styles.columnValue}>8 days left</Text>
-          </View>
-          <View style={styles.summaryBudgetColumn}>
-            <View style={styles.summaryColumnRight}>
-              <Text style={styles.columnLabel}>Budgeted</Text>
-              <Text style={styles.columnValue}>$315.00</Text>
-            </View>
-            <View style={styles.summaryColumnRight}>
-              <Text style={styles.columnLabel}>Left</Text>
-              <Text style={styles.columnValue}>$315.00</Text>
-            </View>
-          </View>
-        </View>
-      </BlurView>
-
-      <BlurView
-        intensity={50}
-        tint={theme.blurTint}
-        style={styles.categoryList}
-      >
-        {categories.map((cat, index) => (
-          <CategoryItem
-            key={index}
-            {...cat}
-            isLast={index === categories.length - 1}
-          />
-        ))}
-      </BlurView>
-
-        <View style={{ height: 120 }} />
-      </ScrollView>
-
-      {/* FAB Button */}
-      <BlurView intensity={50} tint={theme.blurTint} style={styles.fab}>
-        <TouchableOpacity
-          style={styles.fabTouchable}
-          onPress={() =>
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          }
-          activeOpacity={1}
-        >
-          <Text style={styles.fabIcon}>+</Text>
-        </TouchableOpacity>
-      </BlurView>
-    </View>
+        />
+      </View>
     </AnimatedTabScreen>
   );
 }

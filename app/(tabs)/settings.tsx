@@ -7,7 +7,14 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
@@ -33,14 +40,16 @@ export default function SettingsScreen() {
   const handleForceSignOut = async () => {
     try {
       const { supabase } = await import("@/lib/supabase");
-      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
-      
+      const AsyncStorage = (
+        await import("@react-native-async-storage/async-storage")
+      ).default;
+
       // 1. Clear Zustand store (this sets explicitlySignedOut flag)
       await signOut();
-      
+
       // 2. Clear Supabase storage directly
       await supabase.auth.signOut();
-      
+
       // 3. Clear all AsyncStorage keys related to auth
       const allKeys = await AsyncStorage.getAllKeys();
       for (const key of allKeys) {
@@ -54,11 +63,11 @@ export default function SettingsScreen() {
           console.log("Cleared storage key:", key);
         }
       }
-      
+
       // 4. Clear Zustand persisted storage
       await AsyncStorage.removeItem("auth-storage");
       await AsyncStorage.removeItem("auth-storage-v2");
-      
+
       // 5. Force clear Supabase's internal storage (stored in AsyncStorage)
       try {
         const allKeys = await AsyncStorage.getAllKeys();
@@ -75,9 +84,9 @@ export default function SettingsScreen() {
       } catch (e) {
         console.warn("Could not clear Supabase storage:", e);
       }
-      
+
       console.log("Force sign out completed - all auth data cleared");
-      
+
       // Force navigation to auth screen
       router.replace("/(auth)/sign-in");
     } catch (e) {
@@ -129,12 +138,14 @@ export default function SettingsScreen() {
       letterSpacing: 1,
       marginBottom: 12,
     },
-    settingItem: {
-      padding: 16,
+    settingItemWrapper: {
       borderRadius: 12,
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+    },
+    settingItem: {
+      padding: 16,
     },
     settingRow: {
       flexDirection: "row",
@@ -156,12 +167,14 @@ export default function SettingsScreen() {
       color: theme.text,
       fontWeight: "500",
     },
-    dangerButton: {
-      padding: 16,
+    dangerButtonWrapper: {
       borderRadius: 12,
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+    },
+    dangerButton: {
+      padding: 16,
     },
     dangerButtonInner: {
       flexDirection: "row",
@@ -173,14 +186,16 @@ export default function SettingsScreen() {
       color: theme.error,
       fontWeight: "600",
     },
-    emptyState: {
-      padding: 48,
+    emptyStateWrapper: {
       borderRadius: 16,
-      alignItems: "center",
       marginTop: 40,
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+    },
+    emptyState: {
+      padding: 48,
+      alignItems: "center",
     },
     emptyText: {
       fontSize: 16,
@@ -206,97 +221,112 @@ export default function SettingsScreen() {
     <AnimatedTabScreen screenIndex={3}>
       <View style={styles.container}>
         {/* Sticky Header */}
-      <View style={stickyHeaderStyle}>
-        <View style={styles.header}>
-          <AnimatedTitle pathMatch="settings" style={styles.title}>
-            Settings
-          </AnimatedTitle>
-          {__DEV__ && (
-            <Pressable
-              onPress={handleForceSignOut}
-              style={{ marginTop: 8, alignSelf: "flex-end" }}
-            >
-              <Text style={{ color: theme.primary, fontWeight: "600" }}>
-                DEV: Force Sign Out
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={{ paddingTop: headerHeight }}
-      >
-        {/* Appearance Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Appearance</Text>
-          <BlurView
-            intensity={50}
-            tint={theme.blurTint}
-            style={styles.settingItem}
-          >
-            <View style={styles.settingRow}>
-              <View>
-                <Text style={styles.settingLabel}>Dark Mode</Text>
-                <Text style={styles.settingDescription}>
-                  {themeMode === "dark" ? "On" : "Off"}
+        <View style={stickyHeaderStyle}>
+          <View style={styles.header}>
+            <AnimatedTitle pathMatch="settings" style={styles.title}>
+              Settings
+            </AnimatedTitle>
+            {__DEV__ && (
+              <Pressable
+                onPress={handleForceSignOut}
+                style={{ marginTop: 8, alignSelf: "flex-end" }}
+              >
+                <Text style={{ color: theme.primary, fontWeight: "600" }}>
+                  DEV: Force Sign Out
                 </Text>
-              </View>
-              <Switch
-                value={themeMode === "dark"}
-                onValueChange={handleThemeToggle}
-                trackColor={{ false: theme.divider, true: theme.income }}
-                thumbColor={theme.surface}
-                ios_backgroundColor={theme.divider}
-              />
-            </View>
-          </BlurView>
+              </Pressable>
+            )}
+          </View>
         </View>
 
-        {user ? (
-          <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account</Text>
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingTop: headerHeight }}
+        >
+          {/* Appearance Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Appearance</Text>
+            <View style={styles.settingItemWrapper}>
               <BlurView
                 intensity={50}
                 tint={theme.blurTint}
                 style={styles.settingItem}
               >
-                <Text style={styles.settingLabel}>Email</Text>
-                <Text style={styles.settingValue}>{user.email}</Text>
+                <View style={styles.settingRow}>
+                  <View>
+                    <Text style={styles.settingLabel}>Dark Mode</Text>
+                    <Text style={styles.settingDescription}>
+                      {themeMode === "dark" ? "On" : "Off"}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={themeMode === "dark"}
+                    onValueChange={handleThemeToggle}
+                    trackColor={{ false: theme.divider, true: theme.income }}
+                    thumbColor={theme.surface}
+                    ios_backgroundColor={theme.divider}
+                  />
+                </View>
               </BlurView>
             </View>
+          </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Actions</Text>
+          {user ? (
+            <>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Account</Text>
+                <View style={styles.settingItemWrapper}>
+                  <BlurView
+                    intensity={50}
+                    tint={theme.blurTint}
+                    style={styles.settingItem}
+                  >
+                    <Text style={styles.settingLabel}>Email</Text>
+                    <Text style={styles.settingValue}>{user.email}</Text>
+                  </BlurView>
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Actions</Text>
+                <View style={styles.dangerButtonWrapper}>
+                  <BlurView
+                    intensity={50}
+                    tint={theme.blurTint}
+                    style={styles.dangerButton}
+                  >
+                    <Pressable
+                      style={styles.dangerButtonInner}
+                      onPress={handleSignOut}
+                    >
+                      <FontAwesome
+                        name="sign-out"
+                        size={20}
+                        color={theme.error}
+                      />
+                      <Text style={styles.dangerButtonText}>Sign Out</Text>
+                    </Pressable>
+                  </BlurView>
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.emptyStateWrapper}>
               <BlurView
                 intensity={50}
                 tint={theme.blurTint}
-                style={styles.dangerButton}
+                style={styles.emptyState}
               >
-                <Pressable style={styles.dangerButtonInner} onPress={handleSignOut}>
-                  <FontAwesome name="sign-out" size={20} color={theme.error} />
-                  <Text style={styles.dangerButtonText}>Sign Out</Text>
-                </Pressable>
+                <Text style={styles.emptyText}>Not signed in</Text>
+                <Text style={styles.emptySubtext}>
+                  Sign in to access your budget settings
+                </Text>
               </BlurView>
             </View>
-          </>
-        ) : (
-          <BlurView
-            intensity={50}
-            tint={theme.blurTint}
-            style={styles.emptyState}
-          >
-            <Text style={styles.emptyText}>Not signed in</Text>
-            <Text style={styles.emptySubtext}>
-              Sign in to access your budget settings
-            </Text>
-          </BlurView>
-        )}
-      </ScrollView>
-    </View>
+          )}
+        </ScrollView>
+      </View>
     </AnimatedTabScreen>
   );
 }

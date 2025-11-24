@@ -38,14 +38,16 @@ export default function CategoriesScreen() {
       flex: 1,
       paddingHorizontal: 20,
     },
-    emptyState: {
-      padding: 48,
+    emptyStateWrapper: {
       borderRadius: 16,
-      alignItems: "center",
       marginTop: 40,
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+    },
+    emptyState: {
+      padding: 48,
+      alignItems: "center",
     },
     emptyText: {
       fontSize: 16,
@@ -70,28 +72,34 @@ export default function CategoriesScreen() {
   return (
     <AnimatedTabScreen screenIndex={2}>
       <View style={styles.container}>
-      {/* Sticky Header */}
-      <View style={stickyHeaderStyle}>
-        <View style={styles.header}>
-          <AnimatedTitle pathMatch="categories" style={styles.title}>
-            Categories
-          </AnimatedTitle>
+        {/* Sticky Header */}
+        <View style={stickyHeaderStyle}>
+          <View style={styles.header}>
+            <AnimatedTitle pathMatch="categories" style={styles.title}>
+              Categories
+            </AnimatedTitle>
+          </View>
         </View>
-      </View>
 
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={{ paddingTop: headerHeight }}
-      >
-        <BlurView intensity={50} tint={theme.blurTint} style={styles.emptyState}>
-          <Text style={styles.emptyText}>No categories yet</Text>
-          <Text style={styles.emptySubtext}>
-            Create budget categories to organize your spending
-          </Text>
-        </BlurView>
-      </ScrollView>
-    </View>
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingTop: headerHeight }}
+        >
+          <View style={styles.emptyStateWrapper}>
+            <BlurView
+              intensity={50}
+              tint={theme.blurTint}
+              style={styles.emptyState}
+            >
+              <Text style={styles.emptyText}>No categories yet</Text>
+              <Text style={styles.emptySubtext}>
+                Create budget categories to organize your spending
+              </Text>
+            </BlurView>
+          </View>
+        </ScrollView>
+      </View>
     </AnimatedTabScreen>
   );
 }

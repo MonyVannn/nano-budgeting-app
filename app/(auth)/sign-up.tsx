@@ -186,7 +186,7 @@ export default function SignUpScreen() {
           <Text style={styles.subtitle}>Start tracking your budget today</Text>
         </View>
 
-        <BlurView intensity={50} tint={theme.blurTint} style={styles.formCard}>
+        <BlurView intensity={0} tint={theme.blurTint} style={styles.formCard}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput
