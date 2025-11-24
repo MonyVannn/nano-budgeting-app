@@ -1,10 +1,8 @@
-import { AnimatedTabScreen } from "@/components/AnimatedTabScreen";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { FABButton } from "@/components/FABButton";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
@@ -78,6 +76,13 @@ export default function TransactionsScreen() {
       return { start: periodStart, end: periodEnd };
     }
   }, [viewType, periodOffset]);
+
+  // Get category name by ID (define before useMemo)
+  const getCategoryName = (categoryId: string | null) => {
+    if (!categoryId) return "Uncategorized";
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category?.name || "Unknown";
+  };
 
   // Filter transactions for current period
   const filteredTransactions = useMemo(() => {
@@ -154,7 +159,7 @@ export default function TransactionsScreen() {
     }
 
     return { labels, data };
-  }, [filteredTransactions, currentPeriod, viewType]);
+  }, [filteredTransactions, viewType]);
 
   // Format period label
   const periodLabel = useMemo(() => {
@@ -191,13 +196,6 @@ export default function TransactionsScreen() {
     // Sort dates descending (newest first)
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filteredTransactions]);
-
-  // Get category name by ID
-  const getCategoryName = (categoryId: string | null) => {
-    if (!categoryId) return "Uncategorized";
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category?.name || "Unknown";
-  };
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -350,224 +348,230 @@ export default function TransactionsScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-    },
-    stickyHeader: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 10,
-      paddingBottom: 16,
-      paddingHorizontal: 20,
-      borderBottomWidth: 0.5,
-      backgroundColor: theme.background,
-    },
-    header: {
-      gap: 8,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: "700",
-      color: theme.text,
-    },
-    content: {
-      marginTop: 16,
-      flex: 1,
-      paddingHorizontal: 20,
-    },
-    emptyStateWrapper: {
-      borderRadius: 16,
-      marginTop: 40,
-      overflow: "hidden",
-      borderWidth: 0.5,
-      borderColor: theme.divider,
-    },
-    emptyState: {
-      padding: 48,
-      alignItems: "center",
-    },
-    emptyText: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: theme.textSecondary,
-      marginBottom: 8,
-    },
-    emptySubtext: {
-      fontSize: 14,
-      color: theme.textTertiary,
-      textAlign: "center",
-      maxWidth: 250,
-    },
-    transactionGroup: {
-      marginBottom: 24,
-    },
-    dateHeader: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: theme.textSecondary,
-      marginBottom: 12,
-      marginTop: 8,
-    },
-    transactionItemWrapper: {
-      borderRadius: 12,
-      marginBottom: 8,
-      overflow: "hidden",
-      borderWidth: 0.5,
-      borderColor: theme.divider,
-    },
-    transactionItem: {
-      padding: 16,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    transactionLeft: {
-      flex: 1,
-      marginRight: 12,
-    },
-    transactionDescription: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: theme.text,
-      marginBottom: 4,
-    },
-    transactionMeta: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    transactionCategory: {
-      fontSize: 13,
-      color: theme.textSecondary,
-    },
-    transactionAccount: {
-      fontSize: 13,
-      color: theme.textTertiary,
-    },
-    transactionAmount: {
-      fontSize: 18,
-      fontWeight: "700",
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      paddingTop: 100,
-    },
-    chartContainer: {
-      marginBottom: 24,
-      marginTop: 8,
-      borderRadius: 0,
-      overflow: "hidden",
-      backgroundColor: "transparent",
-    },
-    chartHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingHorizontal: 0,
-      paddingTop: 0,
-      paddingBottom: 20,
-      marginBottom: 8,
-    },
-    chartNav: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-    },
-    chartNavButton: {
-      padding: 4,
-    },
-    chartPeriod: {
-      fontSize: 15,
-      fontWeight: "500",
-      color: theme.text,
-    },
-    chartViewToggle: {
-      flexDirection: "row",
-      backgroundColor: theme.surface,
-      borderRadius: 6,
-      padding: 2,
-      borderWidth: 0.5,
-      borderColor: theme.divider,
-      minWidth: 100,
-    },
-    chartViewButton: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 4,
-      flex: 1,
-      alignItems: "center",
-    },
-    chartViewButtonActive: {
-      backgroundColor: theme.primary,
-    },
-    chartViewButtonText: {
-      fontSize: 12,
-      fontWeight: "500",
-      color: theme.textSecondary,
-    },
-    chartViewButtonTextActive: {
-      color: theme.background,
-    },
-    chartWrapper: {
-      paddingHorizontal: 0,
-      paddingBottom: 0,
-      backgroundColor: "transparent",
-    },
-    chartViewDropdown: {
-      position: "relative",
-    },
-    chartViewDropdownButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingVertical: 4,
-      paddingHorizontal: 8,
-    },
-    chartViewDropdownText: {
-      fontSize: 14,
-      fontWeight: "500",
-      color: theme.text,
-    },
-    chartViewDropdownMenuWrapper: {
-      position: "absolute",
-      top: 28,
-      right: 0,
-      borderRadius: 8,
-      overflow: "hidden",
-      minWidth: 100,
-      zIndex: 1000,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 5,
-      borderWidth: 0.5,
-      borderColor: theme.divider,
-    },
-    chartViewDropdownMenu: {
-      backgroundColor: theme.surface,
-    },
-    chartViewDropdownMenuItem: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderBottomWidth: 0.5,
-      borderBottomColor: theme.divider,
-    },
-    chartViewDropdownMenuItemLast: {
-      borderBottomWidth: 0,
-    },
-    chartViewDropdownMenuItemText: {
-      fontSize: 14,
-      fontWeight: "500",
-      color: theme.text,
-    },
-  });
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.background,
+        },
+        stickyHeader: {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          paddingBottom: 16,
+          paddingHorizontal: 20,
+          backgroundColor: theme.background,
+        },
+        header: {
+          gap: 8,
+        },
+        title: {
+          fontSize: 24,
+          fontWeight: "700",
+          color: theme.text,
+        },
+        content: {
+          marginTop: 16,
+          flex: 1,
+          paddingHorizontal: 6,
+          backgroundColor: theme.background,
+        },
+        emptyStateWrapper: {
+          borderRadius: 16,
+          marginTop: 40,
+          overflow: "hidden",
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+          backgroundColor: theme.surface,
+        },
+        emptyState: {
+          padding: 48,
+          alignItems: "center",
+        },
+        emptyText: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: theme.textSecondary,
+          marginBottom: 8,
+        },
+        emptySubtext: {
+          fontSize: 14,
+          color: theme.textTertiary,
+          textAlign: "center",
+          maxWidth: 250,
+        },
+        transactionGroup: {
+          marginBottom: 24,
+        },
+        dateHeader: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: theme.textSecondary,
+          marginBottom: 12,
+          marginTop: 8,
+        },
+        transactionItemWrapper: {
+          borderRadius: 12,
+          marginBottom: 8,
+          overflow: "hidden",
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+          backgroundColor: theme.surface,
+        },
+        transactionItem: {
+          padding: 16,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        },
+        transactionLeft: {
+          flex: 1,
+          marginRight: 12,
+        },
+        transactionDescription: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: theme.text,
+          marginBottom: 4,
+        },
+        transactionMeta: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+        },
+        transactionCategory: {
+          fontSize: 13,
+          color: theme.textSecondary,
+        },
+        transactionAccount: {
+          fontSize: 13,
+          color: theme.textTertiary,
+        },
+        transactionAmount: {
+          fontSize: 18,
+          fontWeight: "700",
+        },
+        loadingContainer: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          paddingTop: 100,
+        },
+        chartContainer: {
+          marginBottom: 24,
+          marginTop: 8,
+          borderRadius: 0,
+          overflow: "hidden",
+          backgroundColor: "transparent",
+        },
+        chartHeader: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingHorizontal: 0,
+          paddingTop: 0,
+          paddingBottom: 20,
+          marginBottom: 8,
+        },
+        chartNav: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        },
+        chartNavButton: {
+          padding: 4,
+        },
+        chartPeriod: {
+          fontSize: 15,
+          fontWeight: "500",
+          color: theme.text,
+        },
+        chartViewToggle: {
+          flexDirection: "row",
+          backgroundColor: theme.surface,
+          borderRadius: 6,
+          padding: 2,
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+          minWidth: 100,
+        },
+        chartViewButton: {
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 4,
+          flex: 1,
+          alignItems: "center",
+        },
+        chartViewButtonActive: {
+          backgroundColor: theme.primary,
+        },
+        chartViewButtonText: {
+          fontSize: 12,
+          fontWeight: "500",
+          color: theme.textSecondary,
+        },
+        chartViewButtonTextActive: {
+          color: theme.background,
+        },
+        chartWrapper: {
+          paddingHorizontal: 0,
+          paddingBottom: 0,
+          backgroundColor: "transparent",
+        },
+        chartViewDropdown: {
+          position: "relative",
+        },
+        chartViewDropdownButton: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 4,
+          paddingVertical: 4,
+          paddingHorizontal: 8,
+        },
+        chartViewDropdownText: {
+          fontSize: 14,
+          fontWeight: "500",
+          color: theme.text,
+        },
+        chartViewDropdownMenuWrapper: {
+          position: "absolute",
+          top: 28,
+          right: 0,
+          borderRadius: 8,
+          overflow: "hidden",
+          minWidth: 100,
+          zIndex: 1000,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 5,
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+        },
+        chartViewDropdownMenu: {
+          backgroundColor: theme.surface,
+        },
+        chartViewDropdownMenuItem: {
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          borderBottomWidth: 0.5,
+          borderBottomColor: theme.divider,
+        },
+        chartViewDropdownMenuItemLast: {
+          borderBottomWidth: 0,
+        },
+        chartViewDropdownMenuItemText: {
+          fontSize: 14,
+          fontWeight: "500",
+          color: theme.text,
+        },
+      }),
+    [theme, insets]
+  );
 
   const headerHeight = Platform.OS === "ios" ? insets.top + 80 : 100;
   const stickyHeaderStyle = [
@@ -575,275 +579,277 @@ export default function TransactionsScreen() {
     { paddingTop: Platform.OS === "ios" ? insets.top + 20 : 40 },
   ];
 
+  const contentContainerStyle = useMemo(
+    () => ({
+      paddingTop: headerHeight,
+      paddingBottom: Platform.OS === "ios" ? insets.bottom + 20 : 20,
+      paddingHorizontal: 20,
+    }),
+    [headerHeight, insets.bottom]
+  );
+
   return (
-    <AnimatedTabScreen screenIndex={1}>
-      <View style={styles.container}>
-        {/* Sticky Header */}
-        <View style={stickyHeaderStyle}>
-          <View style={styles.header}>
-            <AnimatedTitle pathMatch="transactions" style={styles.title}>
-              Transactions
-            </AnimatedTitle>
-            {__DEV__ && (
-              <Pressable
-                onPress={addSampleTransactions}
-                style={{ marginTop: 8, alignSelf: "flex-end" }}
-              >
-                <Text style={{ color: theme.primary, fontWeight: "600" }}>
-                  DEV: Add Sample Data
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-
-        {/* Scrollable Content */}
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={{
-            paddingTop: headerHeight,
-            paddingBottom: Platform.OS === "ios" ? insets.bottom + 20 : 20,
-          }}
-          onScrollBeginDrag={() => {
-            // Close dropdown when scrolling
-            if (showViewDropdown) {
-              setShowViewDropdown(false);
-            }
-          }}
-        >
-          {/* Chart Section */}
-          {transactions.length > 0 && (
-            <View style={styles.chartContainer}>
-              <View style={styles.chartHeader}>
-                {/* Date Selector - Left */}
-                <View style={styles.chartNav}>
-                  <Pressable
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setPeriodOffset(periodOffset - 1);
-                    }}
-                    style={styles.chartNavButton}
-                  >
-                    <ChevronLeft size={18} color={theme.text} />
-                  </Pressable>
-                  <Text style={styles.chartPeriod}>{periodLabel}</Text>
-                  <Pressable
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setPeriodOffset(periodOffset + 1);
-                    }}
-                    style={styles.chartNavButton}
-                  >
-                    <ChevronRight size={18} color={theme.text} />
-                  </Pressable>
-                </View>
-
-                {/* View Selector - Right */}
-                <View style={styles.chartViewDropdown}>
-                  <Pressable
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setShowViewDropdown(!showViewDropdown);
-                    }}
-                    style={styles.chartViewDropdownButton}
-                  >
-                    <Text style={styles.chartViewDropdownText}>
-                      {viewType === "week" ? "Week" : "Month"}
-                    </Text>
-                    <ChevronDown size={16} color={theme.textSecondary} />
-                  </Pressable>
-                  {showViewDropdown && (
-                    <View style={styles.chartViewDropdownMenuWrapper}>
-                      <BlurView
-                        intensity={80}
-                        tint={theme.blurTint}
-                        style={styles.chartViewDropdownMenu}
-                      >
-                        <Pressable
-                          onPress={() => {
-                            Haptics.impactAsync(
-                              Haptics.ImpactFeedbackStyle.Light
-                            );
-                            setViewType("week");
-                            setPeriodOffset(0);
-                            setShowViewDropdown(false);
-                          }}
-                          style={[
-                            styles.chartViewDropdownMenuItem,
-                            viewType === "week" && {
-                              backgroundColor: theme.surfaceHighlight,
-                            },
-                          ]}
-                        >
-                          <Text style={styles.chartViewDropdownMenuItemText}>
-                            Week
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => {
-                            Haptics.impactAsync(
-                              Haptics.ImpactFeedbackStyle.Light
-                            );
-                            setViewType("month");
-                            setPeriodOffset(0);
-                            setShowViewDropdown(false);
-                          }}
-                          style={[
-                            styles.chartViewDropdownMenuItem,
-                            styles.chartViewDropdownMenuItemLast,
-                            viewType === "month" && {
-                              backgroundColor: theme.surfaceHighlight,
-                            },
-                          ]}
-                        >
-                          <Text style={styles.chartViewDropdownMenuItemText}>
-                            Month
-                          </Text>
-                        </Pressable>
-                      </BlurView>
-                    </View>
-                  )}
-                </View>
-              </View>
-              <View style={styles.chartWrapper}>
-                <BarChart
-                  data={{
-                    labels: chartData.labels,
-                    datasets: [{ data: chartData.data }],
-                  }}
-                  width={Dimensions.get("window").width - 40}
-                  height={200}
-                  yAxisLabel="$"
-                  yAxisSuffix=""
-                  chartConfig={{
-                    backgroundColor: "transparent",
-                    backgroundGradientFrom: "transparent",
-                    backgroundGradientTo: "transparent",
-                    decimalPlaces: 0,
-                    color: (opacity = 1) => {
-                      // Convert hex color to rgba
-                      const hex = theme.expense.replace("#", "");
-                      const r = parseInt(hex.substring(0, 2), 16);
-                      const g = parseInt(hex.substring(2, 4), 16);
-                      const b = parseInt(hex.substring(4, 6), 16);
-                      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-                    },
-                    labelColor: (opacity = 1) => {
-                      // Convert hex color to rgba
-                      const hex = theme.textSecondary.replace("#", "");
-                      const r = parseInt(hex.substring(0, 2), 16);
-                      const g = parseInt(hex.substring(2, 4), 16);
-                      const b = parseInt(hex.substring(4, 6), 16);
-                      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-                    },
-                    style: {
-                      borderRadius: 0,
-                    },
-                    propsForBackgroundLines: {
-                      strokeDasharray: "",
-                      stroke: theme.divider,
-                      strokeWidth: 0.5,
-                    },
-                    propsForLabels: {
-                      fontSize: 11,
-                      fontWeight: "400",
-                    },
-                    barPercentage: 0.6,
-                    fillShadowGradient: theme.expense,
-                    fillShadowGradientOpacity: 1,
-                  }}
-                  verticalLabelRotation={0}
-                  fromZero
-                  showValuesOnTopOfBars={false}
-                  withInnerLines={true}
-                  withHorizontalLabels={true}
-                  withVerticalLabels={true}
-                  segments={4}
-                />
-              </View>
-            </View>
+    <View style={styles.container}>
+      {/* Sticky Header */}
+      <View style={stickyHeaderStyle}>
+        <View style={styles.header}>
+          <AnimatedTitle pathMatch="transactions" style={styles.title}>
+            Transactions
+          </AnimatedTitle>
+          {__DEV__ && (
+            <Pressable
+              onPress={addSampleTransactions}
+              style={{ marginTop: 8, alignSelf: "flex-end" }}
+            >
+              <Text style={{ color: theme.primary, fontWeight: "600" }}>
+                DEV: Add Sample Data
+              </Text>
+            </Pressable>
           )}
+        </View>
+      </View>
 
-          {isLoading && transactions.length === 0 ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.primary} />
-            </View>
-          ) : transactions.length === 0 ? (
-            <View style={styles.emptyStateWrapper}>
-              <BlurView
-                intensity={50}
-                tint={theme.blurTint}
-                style={styles.emptyState}
-              >
-                <Text style={styles.emptyText}>No transactions yet</Text>
-                <Text style={styles.emptySubtext}>
-                  Import transactions from CSV or add them manually to get
-                  started
-                </Text>
-              </BlurView>
-            </View>
-          ) : (
-            groupedTransactions.map(([dateKey, dateTransactions]) => (
-              <View key={dateKey} style={styles.transactionGroup}>
-                <Text style={styles.dateHeader}>{formatDate(dateKey)}</Text>
-                {dateTransactions.map((transaction) => (
-                  <View
-                    key={transaction.id}
-                    style={styles.transactionItemWrapper}
-                  >
-                    <BlurView
-                      intensity={50}
-                      tint={theme.blurTint}
-                      style={styles.transactionItem}
-                    >
-                      <View style={styles.transactionLeft}>
-                        <Text style={styles.transactionDescription}>
-                          {transaction.description || "No description"}
-                        </Text>
-                        <View style={styles.transactionMeta}>
-                          <Text style={styles.transactionCategory}>
-                            {getCategoryName(transaction.category_id)}
-                          </Text>
-                          {transaction.account && (
-                            <>
-                              <Text style={{ color: theme.textTertiary }}>
-                                •
-                              </Text>
-                              <Text style={styles.transactionAccount}>
-                                {transaction.account}
-                              </Text>
-                            </>
-                          )}
-                        </View>
-                      </View>
-                      <Text
+      {/* Scrollable Content */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={contentContainerStyle}
+        onScrollBeginDrag={() => {
+          // Close dropdown when scrolling
+          if (showViewDropdown) {
+            setShowViewDropdown(false);
+          }
+        }}
+      >
+        {/* Chart Section */}
+        {transactions.length > 0 && (
+          <View style={styles.chartContainer}>
+            <View style={styles.chartHeader}>
+              {/* Date Selector - Left */}
+              <View style={styles.chartNav}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setPeriodOffset(periodOffset - 1);
+                  }}
+                  style={styles.chartNavButton}
+                >
+                  <ChevronLeft size={18} color={theme.text} />
+                </Pressable>
+                <Text style={styles.chartPeriod}>{periodLabel}</Text>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setPeriodOffset(periodOffset + 1);
+                  }}
+                  style={styles.chartNavButton}
+                >
+                  <ChevronRight size={18} color={theme.text} />
+                </Pressable>
+              </View>
+
+              {/* View Selector - Right */}
+              <View style={styles.chartViewDropdown}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowViewDropdown(!showViewDropdown);
+                  }}
+                  style={styles.chartViewDropdownButton}
+                >
+                  <Text style={styles.chartViewDropdownText}>
+                    {viewType === "week" ? "Week" : "Month"}
+                  </Text>
+                  <ChevronDown size={16} color={theme.textSecondary} />
+                </Pressable>
+                {showViewDropdown && (
+                  <View style={styles.chartViewDropdownMenuWrapper}>
+                    <View style={styles.chartViewDropdownMenu}>
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Light
+                          );
+                          setViewType("week");
+                          setPeriodOffset(0);
+                          setShowViewDropdown(false);
+                        }}
                         style={[
-                          styles.transactionAmount,
-                          {
-                            color: transaction.is_expense
-                              ? theme.expense
-                              : theme.income,
+                          styles.chartViewDropdownMenuItem,
+                          viewType === "week" && {
+                            backgroundColor: theme.surfaceHighlight,
                           },
                         ]}
                       >
-                        {transaction.is_expense ? "-" : "+"}$
-                        {transaction.amount.toFixed(2)}
-                      </Text>
-                    </BlurView>
+                        <Text style={styles.chartViewDropdownMenuItemText}>
+                          Week
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Light
+                          );
+                          setViewType("month");
+                          setPeriodOffset(0);
+                          setShowViewDropdown(false);
+                        }}
+                        style={[
+                          styles.chartViewDropdownMenuItem,
+                          styles.chartViewDropdownMenuItemLast,
+                          viewType === "month" && {
+                            backgroundColor: theme.surfaceHighlight,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.chartViewDropdownMenuItemText}>
+                          Month
+                        </Text>
+                      </Pressable>
+                    </View>
                   </View>
-                ))}
+                )}
               </View>
-            ))
-          )}
-        </ScrollView>
+            </View>
+            <View style={styles.chartWrapper}>
+              <BarChart
+                data={{
+                  labels: chartData.labels,
+                  datasets: [{ data: chartData.data }],
+                }}
+                width={Dimensions.get("window").width - 40}
+                height={200}
+                yAxisLabel="$"
+                yAxisSuffix=""
+                chartConfig={{
+                  backgroundColor: "transparent",
+                  backgroundGradientFrom: "transparent",
+                  backgroundGradientTo: "transparent",
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => {
+                    // Convert hex color to rgba
+                    const hex = theme.expense.replace("#", "");
+                    const r = parseInt(hex.substring(0, 2), 16);
+                    const g = parseInt(hex.substring(2, 4), 16);
+                    const b = parseInt(hex.substring(4, 6), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                  },
+                  labelColor: (opacity = 1) => {
+                    // Convert hex color to rgba
+                    const hex = theme.textSecondary.replace("#", "");
+                    const r = parseInt(hex.substring(0, 2), 16);
+                    const g = parseInt(hex.substring(2, 4), 16);
+                    const b = parseInt(hex.substring(4, 6), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                  },
+                  style: {
+                    borderRadius: 0,
+                  },
+                  propsForBackgroundLines: {
+                    strokeDasharray: "",
+                    stroke: theme.divider,
+                    strokeWidth: 0.5,
+                  },
+                  propsForLabels: {
+                    fontSize: 11,
+                    fontWeight: "400",
+                  },
+                  barPercentage: 0.6,
+                  fillShadowGradient: theme.expense,
+                  fillShadowGradientOpacity: 1,
+                }}
+                verticalLabelRotation={0}
+                fromZero
+                showValuesOnTopOfBars={false}
+                withInnerLines={true}
+                withHorizontalLabels={true}
+                withVerticalLabels={true}
+                segments={4}
+              />
+            </View>
+          </View>
+        )}
 
-        {/* FAB Button */}
-        <FABButton
-          onPress={() => {
-            router.push("/add-transaction");
-          }}
-        />
-      </View>
-    </AnimatedTabScreen>
+        {isLoading && transactions.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        ) : filteredTransactions.length === 0 ? (
+          <View style={styles.emptyStateWrapper}>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                {transactions.length === 0
+                  ? "No transactions yet"
+                  : "No transactions in this period"}
+              </Text>
+              <Text style={styles.emptySubtext}>
+                {transactions.length === 0
+                  ? "Import transactions from CSV or add them manually to get started"
+                  : "Change the period or add new transactions"}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          groupedTransactions.map(([dateKey, dateTransactions]) => (
+            <View key={dateKey} style={styles.transactionGroup}>
+              <Text style={styles.dateHeader}>{formatDate(dateKey)}</Text>
+              {dateTransactions.map((transaction) => (
+                <Pressable
+                  key={transaction.id}
+                  style={styles.transactionItemWrapper}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push({
+                      pathname: "/transaction-detail",
+                      params: { id: transaction.id },
+                    });
+                  }}
+                >
+                  <View style={styles.transactionItem}>
+                    <View style={styles.transactionLeft}>
+                      <Text style={styles.transactionDescription}>
+                        {transaction.description || "No description"}
+                      </Text>
+                      <View style={styles.transactionMeta}>
+                        <Text style={styles.transactionCategory}>
+                          {getCategoryName(transaction.category_id)}
+                        </Text>
+                        {transaction.account && (
+                          <>
+                            <Text style={{ color: theme.textTertiary }}>•</Text>
+                            <Text style={styles.transactionAccount}>
+                              {transaction.account}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
+                    <Text
+                      style={[
+                        styles.transactionAmount,
+                        {
+                          color: transaction.is_expense
+                            ? theme.expense
+                            : theme.income,
+                        },
+                      ]}
+                    >
+                      {transaction.is_expense ? "-" : "+"}$
+                      {transaction.amount.toFixed(2)}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* FAB Button */}
+      <FABButton
+        onPress={() => {
+          router.push("/add-transaction");
+        }}
+      />
+    </View>
   );
 }

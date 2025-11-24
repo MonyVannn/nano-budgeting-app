@@ -4,7 +4,7 @@ import React from "react";
 import { Pressable } from "react-native";
 
 import { useTheme } from "@/constants/ThemeContext";
-import { CreditCard, FolderOpen, Home, UserCircle } from "lucide-react-native";
+import { BarChart3, CreditCard, Home, UserCircle } from "lucide-react-native";
 
 // Custom tab bar button with haptic feedback
 const TabBarButton = ({ children, onPress, accessibilityState }: any) => {
@@ -72,11 +72,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="categories"
+        name="report"
         options={{
-          title: "Categories",
+          title: "Report",
           tabBarIcon: ({ color, focused }) => (
-            <FolderOpen size={28} color={color} strokeWidth={2} />
+            <BarChart3 size={28} color={color} strokeWidth={2} />
           ),
         }}
       />

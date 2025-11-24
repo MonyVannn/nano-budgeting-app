@@ -1,5 +1,4 @@
 import { useTheme } from "@/constants/ThemeContext";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,15 +23,12 @@ export function FABButton({ onPress, bottomOffset = 50 }: FABButtonProps) {
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+      backgroundColor: theme.surface,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.5,
       shadowRadius: 12,
       elevation: 8,
-    },
-    fab: {
-      width: "100%",
-      height: "100%",
     },
     fabTouchable: {
       flex: 1,
@@ -48,18 +44,16 @@ export function FABButton({ onPress, bottomOffset = 50 }: FABButtonProps) {
 
   return (
     <View style={styles.fabWrapper}>
-      <BlurView intensity={50} tint={theme.blurTint} style={styles.fab}>
-        <TouchableOpacity
-          style={styles.fabTouchable}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onPress();
-          }}
-          activeOpacity={1}
-        >
-          <Text style={styles.fabIcon}>+</Text>
-        </TouchableOpacity>
-      </BlurView>
+      <TouchableOpacity
+        style={styles.fabTouchable}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onPress();
+        }}
+        activeOpacity={1}
+      >
+        <Text style={styles.fabIcon}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }

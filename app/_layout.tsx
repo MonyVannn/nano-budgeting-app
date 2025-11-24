@@ -132,6 +132,40 @@ function RootLayoutNav() {
             animation: "slide_from_bottom",
           }}
         />
+        <Stack.Screen
+          name="transaction-detail"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="edit-transaction"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+            animation: "slide_from_bottom",
+          }}
+        />
+        <Stack.Screen
+          name="add-category"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+            animation: "slide_from_bottom",
+          }}
+        />
+        <Stack.Screen
+          name="categories"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="category-detail"
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack>
     </NavigationThemeProvider>
   );

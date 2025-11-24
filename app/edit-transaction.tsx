@@ -20,23 +20,30 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-export default function AddTransactionDetailsScreen() {
+export default function EditTransactionScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { categories, fetchCategories } = useCategoryStore();
-  const { addTransaction, isLoading } = useTransactionStore();
+  const { updateTransaction, isLoading } = useTransactionStore();
   const params = useLocalSearchParams();
+  const transactionId = params.id as string;
   const amount = parseFloat(params.amount as string) || 0;
 
-  const [isExpense, setIsExpense] = useState(true);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    null
+  const [isExpense, setIsExpense] = useState(
+    params.isExpense === "true" || params.isExpense === "true"
   );
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    (params.categoryId as string) || null
+  );
+  const [selectedDate, setSelectedDate] = useState(
+    params.date ? new Date(params.date as string) : new Date()
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [description, setDescription] = useState("");
-  const [account, setAccount] = useState("");
+  const [description, setDescription] = useState(
+    (params.description as string) || ""
+  );
+  const [account, setAccount] = useState((params.account as string) || "");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   useEffect(() => {
@@ -59,8 +66,7 @@ export default function AddTransactionDetailsScreen() {
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await addTransaction({
-        user_id: user.id,
+      await updateTransaction(transactionId, {
         amount: amount,
         is_expense: isExpense,
         category_id: selectedCategoryId,
@@ -70,12 +76,10 @@ export default function AddTransactionDetailsScreen() {
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Close both modal screens - transactions screen is already in tab stack
-      router.back(); // Close details screen
-      router.back(); // Close amount screen
+      router.back(); // Close edit screen
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", error.message || "Failed to save transaction");
+      Alert.alert("Error", error.message || "Failed to update transaction");
     }
   };
 
@@ -285,14 +289,13 @@ export default function AddTransactionDetailsScreen() {
     setTimeout(() => {
       if (inputRef.current && scrollViewRef.current) {
         inputRef.current.measureInWindow((x, y, width, height) => {
-          // Get keyboard height (approximate: 300-350 for most devices)
           const keyboardHeight = Platform.OS === "ios" ? 350 : 300;
           const screenHeight = Dimensions.get("window").height;
           const inputBottom = y + height;
           const visibleAreaBottom = screenHeight - keyboardHeight;
 
           if (inputBottom > visibleAreaBottom) {
-            const scrollAmount = inputBottom - visibleAreaBottom + 50; // Extra padding
+            const scrollAmount = inputBottom - visibleAreaBottom + 50;
             scrollViewRef.current?.scrollTo({
               y: scrollAmount,
               animated: true,
@@ -315,7 +318,7 @@ export default function AddTransactionDetailsScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft size={24} color={theme.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Transaction Details</Text>
+          <Text style={styles.headerTitle}>Edit Transaction</Text>
         </View>
       </View>
 
@@ -395,6 +398,7 @@ export default function AddTransactionDetailsScreen() {
               style={styles.dropdownButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                Keyboard.dismiss();
                 setShowCategoryDropdown(!showCategoryDropdown);
               }}
             >
@@ -549,7 +553,7 @@ export default function AddTransactionDetailsScreen() {
           ]}
         >
           <Text style={styles.saveButtonText}>
-            {isLoading ? "Saving..." : "Save Transaction"}
+            {isLoading ? "Saving..." : "Save Changes"}
           </Text>
         </Pressable>
       </ScrollView>

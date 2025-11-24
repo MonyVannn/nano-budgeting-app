@@ -17,7 +17,7 @@ export const RobinhoodPalette = {
   lightYellow: "#f6c86a",
 
   // Dark theme greys
-  darkGrey: "#1f2123",
+  darkGrey: "#0f1011",
   mediumGrey: "#2d2f31",
   lightGrey: "#3a3c3e",
   mutedGrey: "#6b6e72",
