@@ -4,9 +4,9 @@ import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ChevronDown } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Platform,
   Pressable,
@@ -33,20 +33,47 @@ export default function DashboardScreen() {
   const { user } = useAuthStore();
   const { transactions, fetchTransactions, getTotalIncome, getTotalExpenses } =
     useTransactionStore();
-  const { categories, fetchCategories } = useCategoryStore();
+  const { categories, fetchCategories, isLoading } = useCategoryStore();
 
   // Animated values for income expansion
   const heightAnimation = useSharedValue(0);
   const opacityAnimation = useSharedValue(0);
   const chevronRotation = useSharedValue(0);
 
-  // Fetch data on mount
+  // Guard: Redirect to sign-in if not authenticated
   useEffect(() => {
-    if (user?.id) {
-      fetchTransactions(user.id);
-      fetchCategories(user.id);
+    if (!user) {
+      const timer = setTimeout(() => {
+        router.replace("/(auth)/sign-in");
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [user?.id, fetchTransactions, fetchCategories]);
+  }, [user]);
+
+  // Fetch data on mount and when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        fetchTransactions(user.id);
+        fetchCategories(user.id);
+      }
+    }, [user?.id, fetchTransactions, fetchCategories])
+  );
+
+  // Redirect to onboarding if user has no categories
+  useEffect(() => {
+    if (user?.id && !isLoading && categories.length === 0) {
+      const timer = setTimeout(() => {
+        router.replace("/(onboarding)/select-categories" as any);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.id, isLoading, categories.length]);
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null;
+  }
 
   // Calculate current month date range
   const currentMonth = useMemo(() => {
@@ -62,11 +89,11 @@ export default function DashboardScreen() {
   // Calculate monthly totals
   const monthlyIncome = useMemo(
     () => getTotalIncome(currentMonth.start, currentMonth.end),
-    [getTotalIncome, currentMonth.start, currentMonth.end]
+    [getTotalIncome, currentMonth.start, currentMonth.end, transactions]
   );
   const monthlyExpenses = useMemo(
     () => getTotalExpenses(currentMonth.start, currentMonth.end),
-    [getTotalExpenses, currentMonth.start, currentMonth.end]
+    [getTotalExpenses, currentMonth.start, currentMonth.end, transactions]
   );
   const remaining = monthlyIncome - monthlyExpenses;
 

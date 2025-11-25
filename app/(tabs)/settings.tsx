@@ -27,70 +27,10 @@ export default function SettingsScreen() {
     try {
       await signOut();
       // Root layout will automatically navigate to sign-in when user becomes null
-      // But we also navigate here as a backup
-      router.replace("/(auth)/sign-in");
+      // Don't navigate manually here to avoid double navigation
     } catch (error) {
       console.error("Sign out failed:", error);
-      // Even if sign out fails, try to navigate
-      router.replace("/(auth)/sign-in");
-    }
-  };
-
-  // Dev helper: allow forcing sign out from Settings when running in dev mode
-  const handleForceSignOut = async () => {
-    try {
-      const { supabase } = await import("@/lib/supabase");
-      const AsyncStorage = (
-        await import("@react-native-async-storage/async-storage")
-      ).default;
-
-      // 1. Clear Zustand store (this sets explicitlySignedOut flag)
-      await signOut();
-
-      // 2. Clear Supabase storage directly
-      await supabase.auth.signOut();
-
-      // 3. Clear all AsyncStorage keys related to auth
-      const allKeys = await AsyncStorage.getAllKeys();
-      for (const key of allKeys) {
-        if (
-          key.includes("auth") ||
-          key.includes("supabase") ||
-          key.includes("sb-") ||
-          key.startsWith("@supabase")
-        ) {
-          await AsyncStorage.removeItem(key);
-          console.log("Cleared storage key:", key);
-        }
-      }
-
-      // 4. Clear Zustand persisted storage
-      await AsyncStorage.removeItem("auth-storage");
-      await AsyncStorage.removeItem("auth-storage-v2");
-
-      // 5. Force clear Supabase's internal storage (stored in AsyncStorage)
-      try {
-        const allKeys = await AsyncStorage.getAllKeys();
-        for (const key of allKeys) {
-          if (
-            key.includes("supabase") ||
-            key.includes("sb-") ||
-            key.startsWith("@supabase")
-          ) {
-            await AsyncStorage.removeItem(key);
-            console.log("Cleared Supabase storage key:", key);
-          }
-        }
-      } catch (e) {
-        console.warn("Could not clear Supabase storage:", e);
-      }
-
-      console.log("Force sign out completed - all auth data cleared");
-
-      // Force navigation to auth screen
-      router.replace("/(auth)/sign-in");
-    } catch (e) {
-      console.error("Force sign out failed:", e);
+      // Even if sign out fails, the root layout will handle navigation
     }
   };
 
@@ -244,16 +184,6 @@ export default function SettingsScreen() {
           <AnimatedTitle pathMatch="settings" style={styles.title}>
             Settings
           </AnimatedTitle>
-          {__DEV__ && (
-            <Pressable
-              onPress={handleForceSignOut}
-              style={{ marginTop: 8, alignSelf: "flex-end" }}
-            >
-              <Text style={{ color: theme.primary, fontWeight: "600" }}>
-                DEV: Force Sign Out
-              </Text>
-            </Pressable>
-          )}
         </View>
       </View>
 

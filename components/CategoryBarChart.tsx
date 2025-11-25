@@ -1,7 +1,7 @@
 import { AppColors } from "@/constants/Colors";
 import React from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
-import { BarChart } from "react-native-chart-kit";
+import { BarChart } from "react-native-gifted-charts";
 
 interface CategoryBarChartProps {
   data: {
@@ -26,40 +26,52 @@ export function CategoryBarChart({
 }: CategoryBarChartProps) {
   const screenWidth = Dimensions.get("window").width;
 
-  const chartConfig = {
-    backgroundColor: "#ffffff",
-    backgroundGradientFrom: "#ffffff",
-    backgroundGradientTo: "#ffffff",
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(64, 160, 43, ${opacity})`, // Green
-    labelColor: (opacity = 1) => `rgba(76, 79, 105, ${opacity})`, // Text color
-    style: {
-      borderRadius: 16,
-    },
-    propsForBackgroundLines: {
-      strokeDasharray: "",
-      stroke: AppColors.border,
-      strokeWidth: 1,
-    },
-    propsForLabels: {
-      fontSize: 12,
-      fontWeight: "500",
-    },
-    barPercentage: 0.7,
-  };
+  // Convert data format from react-native-chart-kit to react-native-gifted-charts
+  const chartData = data.labels.map((label, index) => ({
+    value: data.datasets[0].data[index] || 0,
+    label: label,
+    frontColor: data.datasets[0].colors?.[index]?.(1) || AppColors.primary,
+  }));
+
+  const maxValue = Math.max(...chartData.map((d) => d.value), 0) * 1.1 || 100;
 
   return (
     <View style={styles.container}>
       <BarChart
-        data={data}
+        data={chartData}
         width={screenWidth - 48} // Account for padding
         height={height}
-        chartConfig={chartConfig}
-        verticalLabelRotation={0}
-        fromZero
-        showValuesOnTopOfBars
-        withInnerLines
-        style={styles.chart}
+        barWidth={30}
+        spacing={8}
+        showGradient
+        isAnimated
+        animationDuration={800}
+        noOfSections={4}
+        maxValue={maxValue}
+        yAxisThickness={1}
+        xAxisThickness={1}
+        yAxisTextStyle={{
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontWeight: "500",
+        }}
+        xAxisLabelTextStyle={{
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontWeight: "500",
+        }}
+        rulesColor={AppColors.border}
+        rulesType="solid"
+        showYAxisIndices={false}
+        showXAxisIndices={false}
+        formatYLabel={(value) => `$${Math.round(parseFloat(value))}`}
+        showValuesAsTopLabel
+        topLabelTextStyle={{
+          color: AppColors.textSecondary,
+          fontSize: 11,
+          fontWeight: "600",
+        }}
+        backgroundColor="transparent"
       />
     </View>
   );

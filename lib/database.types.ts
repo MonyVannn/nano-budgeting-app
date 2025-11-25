@@ -24,6 +24,7 @@ export interface Database {
           user_id: string;
           name: string;
           expected_amount: number;
+          frequency: "weekly" | "monthly";
           created_at: string;
           updated_at: string;
         };
@@ -32,6 +33,7 @@ export interface Database {
           user_id: string;
           name: string;
           expected_amount?: number;
+          frequency?: "weekly" | "monthly";
           created_at?: string;
           updated_at?: string;
         };
@@ -40,6 +42,7 @@ export interface Database {
           user_id?: string;
           name?: string;
           expected_amount?: number;
+          frequency?: "weekly" | "monthly";
           created_at?: string;
           updated_at?: string;
         };
@@ -177,3 +180,4 @@ export type RecurringTransactionUpdate =
   Database["public"]["Tables"]["recurring_transactions"]["Update"];
 
 export type TransactionFrequency = "weekly" | "monthly" | "yearly";
+export type CategoryFrequency = "weekly" | "monthly";

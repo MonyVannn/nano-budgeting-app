@@ -35,7 +35,8 @@ export default function SignInScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await signIn(email, password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/(tabs)");
+      // Don't navigate directly - let root layout handle routing based on onboarding status
+      // router.replace("/(tabs)");
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Sign In Failed", error.message || "Please try again");

@@ -35,7 +35,9 @@ export const useAuthStore = create<AuthState>()(
           // Check if user explicitly signed out - if so, don't restore session
           const state = get();
           if (state.explicitlySignedOut) {
-            console.log("User explicitly signed out, skipping session restoration");
+            console.log(
+              "User explicitly signed out, skipping session restoration"
+            );
             // Clear Supabase storage to be sure
             await supabase.auth.signOut();
             set({
@@ -69,20 +71,33 @@ export const useAuthStore = create<AuthState>()(
             });
           } else {
             // Verify session is actually valid by checking if it has a user
-            // and the session hasn't expired
             if (session && session.user) {
-              // Check if session is expired
+              // Check if session is expired - if so, try to refresh it
               const now = Math.floor(Date.now() / 1000);
               if (session.expires_at && session.expires_at < now) {
-                // Session expired, sign out
-                await supabase.auth.signOut();
-                set({
-                  session: null,
-                  user: null,
-                  isInitialized: true,
-                });
+                // Session expired, try to refresh it
+                // Supabase's autoRefreshToken should handle this, but we'll try manually
+                const { data: refreshData, error: refreshError } =
+                  await supabase.auth.refreshSession();
+
+                if (refreshError || !refreshData.session) {
+                  // Refresh failed, clear session
+                  console.log("Session refresh failed, clearing session");
+                  set({
+                    session: null,
+                    user: null,
+                    isInitialized: true,
+                  });
+                } else {
+                  // Refresh succeeded, use new session
+                  set({
+                    session: refreshData.session,
+                    user: refreshData.session.user,
+                    isInitialized: true,
+                  });
+                }
               } else {
-                // Verify the session is actually valid by checking the user
+                // Session is still valid
                 set({
                   session: session,
                   user: session.user,
@@ -104,10 +119,21 @@ export const useAuthStore = create<AuthState>()(
             const currentState = get();
             // Don't restore session if user explicitly signed out
             if (currentState.explicitlySignedOut && !session) {
-              console.log("Auth state changed but user explicitly signed out, ignoring");
+              console.log(
+                "Auth state changed but user explicitly signed out, ignoring"
+              );
               return;
             }
-            
+
+            // Handle token refresh events - update session without resetting explicitlySignedOut
+            if (_event === "TOKEN_REFRESHED" && session && session.user) {
+              set({
+                session: session,
+                user: session.user,
+              });
+              return;
+            }
+
             // Only update if we have a valid session or if it's a sign out event
             if (session && session.user) {
               set({
@@ -115,7 +141,7 @@ export const useAuthStore = create<AuthState>()(
                 user: session.user,
                 explicitlySignedOut: false, // Reset flag on successful auth
               });
-            } else if (_event === 'SIGNED_OUT') {
+            } else if (_event === "SIGNED_OUT") {
               set({
                 session: null,
                 user: null,
@@ -185,22 +211,19 @@ export const useAuthStore = create<AuthState>()(
       signOut: async () => {
         try {
           set({ isLoading: true });
-          
+
           // Mark as explicitly signed out BEFORE clearing
           set({ explicitlySignedOut: true });
-          
+
           // Sign out from Supabase (this clears Supabase's internal storage)
           const { error } = await supabase.auth.signOut();
-          
+
           // Clear Supabase storage keys directly to be absolutely sure
           try {
             // Supabase stores auth data in AsyncStorage with specific keys
             // Clear common Supabase auth storage keys
-            const commonKeys = [
-              'sb-auth-token',
-              'supabase.auth.token',
-            ];
-            
+            const commonKeys = ["sb-auth-token", "supabase.auth.token"];
+
             for (const key of commonKeys) {
               try {
                 await AsyncStorage.removeItem(key);
@@ -208,11 +231,15 @@ export const useAuthStore = create<AuthState>()(
                 // Ignore errors for individual keys
               }
             }
-            
+
             // Also try to get all keys and clear Supabase-related ones
             const allKeys = await AsyncStorage.getAllKeys();
             for (const key of allKeys) {
-              if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
+              if (
+                key.includes("supabase") ||
+                key.includes("sb-") ||
+                key.includes("auth")
+              ) {
                 try {
                   await AsyncStorage.removeItem(key);
                 } catch (e) {
@@ -223,19 +250,19 @@ export const useAuthStore = create<AuthState>()(
           } catch (storageError) {
             console.warn("Error clearing Supabase storage:", storageError);
           }
-          
+
           // Clear state immediately regardless of Supabase response
           set({
             session: null,
             user: null,
             explicitlySignedOut: true,
           });
-          
+
           if (error) {
             console.error("Sign out error:", error);
             // Don't throw - we've cleared local state anyway
           }
-          
+
           console.log("Sign out completed - state cleared");
         } catch (error) {
           console.error("Sign out error:", error);

@@ -139,12 +139,12 @@ export default function SignUpScreen() {
     buttonText: {
       fontSize: 16,
       fontWeight: "600",
-      color: theme.background,
+      color: theme.text,
     },
     buttonTextDisabled: {
       fontSize: 16,
       fontWeight: "600",
-      color: theme.background,
+      color: theme.text,
       opacity: 0.5,
     },
     buttonDisabled: {

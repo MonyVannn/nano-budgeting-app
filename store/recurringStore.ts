@@ -1,5 +1,5 @@
+import { Database } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
-import { Database } from "@/types/database";
 import { create } from "zustand";
 
 type RecurringTransaction =
@@ -61,11 +61,16 @@ export const useRecurringStore = create<RecurringTransactionState>(
         set({ isLoading: true });
         const { data, error } = await supabase
           .from("recurring_transactions")
+          // @ts-ignore - Supabase type inference issue with Database generic
           .insert(transaction)
-          .select()
+          .select("*")
           .single();
 
         if (error) throw error;
+
+        if (!data) {
+          throw new Error("No data returned from insert");
+        }
 
         set((state) => ({
           recurringTransactions: [data, ...state.recurringTransactions],
@@ -86,12 +91,17 @@ export const useRecurringStore = create<RecurringTransactionState>(
         set({ isLoading: true });
         const { data, error } = await supabase
           .from("recurring_transactions")
+          // @ts-ignore - Supabase type inference issue with Database generic
           .update(updates)
           .eq("id", id)
-          .select()
+          .select("*")
           .single();
 
         if (error) throw error;
+
+        if (!data) {
+          throw new Error("No data returned from update");
+        }
 
         set((state) => ({
           recurringTransactions: state.recurringTransactions.map((txn) =>

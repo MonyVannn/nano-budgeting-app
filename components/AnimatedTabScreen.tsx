@@ -46,11 +46,12 @@ export function AnimatedTabScreen({
     
     if (isTabRoute) {
       // Determine current active tab index only for tab routes
-      if (segments[1] === "transactions" || pathname === "/(tabs)/transactions") {
+      const segment = segments[1] as string | undefined;
+      if (segment === "transactions" || pathname === "/(tabs)/transactions") {
         currentIndex = 1;
-      } else if (segments[1] === "categories" || pathname === "/(tabs)/categories") {
+      } else if (segment === "categories" || pathname === "/(tabs)/categories") {
         currentIndex = 2;
-      } else if (segments[1] === "settings" || pathname === "/(tabs)/settings") {
+      } else if (segment === "settings" || pathname === "/(tabs)/settings") {
         currentIndex = 3;
       } else {
         currentIndex = 0; // Dashboard (index or /(tabs))

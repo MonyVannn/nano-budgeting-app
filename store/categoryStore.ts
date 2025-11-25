@@ -1,5 +1,5 @@
+import { Database } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
-import { Database } from "@/types/database";
 import { create } from "zustand";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
@@ -16,6 +16,7 @@ interface CategoryState {
   updateCategory: (id: string, updates: CategoryUpdate) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   resetMonthlyBudgets: () => Promise<void>;
+  clearCategories: () => void;
 }
 
 export const useCategoryStore = create<CategoryState>((set, get) => ({
@@ -47,11 +48,16 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       set({ isLoading: true });
       const { data, error } = await supabase
         .from("categories")
+        // @ts-ignore - Supabase type inference issue with Database generic
         .insert(category)
-        .select()
+        .select("*")
         .single();
 
       if (error) throw error;
+
+      if (!data) {
+        throw new Error("No data returned from insert");
+      }
 
       set((state) => ({
         categories: [...state.categories, data],
@@ -69,15 +75,22 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       set({ isLoading: true });
       const { data, error } = await supabase
         .from("categories")
+        // @ts-ignore - Supabase type inference issue with Database generic
         .update(updates)
         .eq("id", id)
-        .select()
+        .select("*")
         .single();
 
       if (error) throw error;
 
+      if (!data) {
+        throw new Error("No data returned from update");
+      }
+
       set((state) => ({
-        categories: state.categories.map((cat) => (cat.id === id ? data : cat)),
+        categories: state.categories.map((cat) =>
+          cat.id === id ? data : cat
+        ),
       }));
     } catch (error) {
       console.error("Error updating category:", error);
@@ -110,5 +123,9 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     // Implementation depends on how you track monthly spending
     // For now, this is a placeholder
     console.log("Monthly budget reset triggered");
+  },
+
+  clearCategories: () => {
+    set({ categories: [] });
   },
 }));

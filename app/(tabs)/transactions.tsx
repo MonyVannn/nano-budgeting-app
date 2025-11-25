@@ -4,9 +4,9 @@ import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -16,7 +16,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { BarChart } from "react-native-chart-kit";
+import { BarChart } from "react-native-gifted-charts";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ViewType = "week" | "month";
@@ -33,13 +33,23 @@ export default function TransactionsScreen() {
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current period, -1 = previous, 1 = next
   const [showViewDropdown, setShowViewDropdown] = useState(false);
 
-  // Fetch transactions and categories on mount
-  useEffect(() => {
-    if (user?.id) {
-      fetchTransactions(user.id);
-      fetchCategories(user.id);
-    }
-  }, [user?.id, fetchTransactions, fetchCategories]);
+  // Fetch transactions and categories on mount and when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        fetchTransactions(user.id);
+        fetchCategories(user.id);
+      }
+    }, [user?.id, fetchTransactions, fetchCategories])
+  );
+
+  // Helper function to format date as YYYY-MM-DD in local timezone
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   // Calculate current period (week or month) based on offset
   const currentPeriod = useMemo(() => {
@@ -87,9 +97,14 @@ export default function TransactionsScreen() {
   // Filter transactions for current period
   const filteredTransactions = useMemo(() => {
     const { start, end } = currentPeriod;
+    // Normalize dates to compare properly (ignore time component) - use local timezone
+    const startDateStr = formatDateLocal(start);
+    const endDateStr = formatDateLocal(end);
+
     return transactions.filter((txn) => {
-      const txnDate = new Date(txn.date);
-      return txnDate >= start && txnDate <= end;
+      // Transaction date is already in YYYY-MM-DD format
+      const txnDateStr = txn.date.split("T")[0]; // Handle potential timestamp
+      return txnDateStr >= startDateStr && txnDateStr <= endDateStr;
     });
   }, [transactions, currentPeriod]);
 
@@ -98,10 +113,14 @@ export default function TransactionsScreen() {
     const { start, end } = currentPeriod;
     const days: { [key: string]: number } = {};
 
-    // Initialize all days in period with 0
+    // Initialize all days in period with 0 - use local timezone
+    const startDateStr = formatDateLocal(start);
+    const endDateStr = formatDateLocal(end);
     const current = new Date(start);
-    while (current <= end) {
-      const dateKey = current.toISOString().split("T")[0];
+    const endDate = new Date(end);
+
+    while (current <= endDate) {
+      const dateKey = formatDateLocal(current);
       days[dateKey] = 0;
       current.setDate(current.getDate() + 1);
     }
@@ -109,57 +128,55 @@ export default function TransactionsScreen() {
     // Sum expenses for each day
     filteredTransactions.forEach((txn) => {
       if (txn.is_expense) {
-        const dateKey = txn.date;
+        // Ensure date is in YYYY-MM-DD format
+        const dateKey = txn.date.split("T")[0]; // Handle potential timestamp format
         if (days[dateKey] !== undefined) {
-          days[dateKey] += txn.amount;
+          days[dateKey] += parseFloat(txn.amount.toString());
         }
       }
     });
 
-    // Format for chart
-    const dayEntries = Object.entries(days).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    );
-
-    // For week view, show all 7 days
-    // For month view, show selected days (e.g., every 3-4 days)
-    let labels: string[] = [];
-    let data: number[] = [];
+    // Format for chart - only include days with transactions or all days for week view
+    let dayEntries: Array<[string, number]> = [];
 
     if (viewType === "week") {
-      labels = dayEntries.map(([date]) => {
-        const d = new Date(date);
-        return d.toLocaleDateString("en-US", { weekday: "short" });
-      });
-      data = dayEntries.map(([, amount]) => amount);
+      // For week view, show all 7 days
+      dayEntries = Object.entries(days).sort((a, b) =>
+        a[0].localeCompare(b[0])
+      );
     } else {
-      // For month, show dates spaced 7 days apart
-      const selectedDays: typeof dayEntries = [];
-      let lastSelectedIndex = -7; // Start at -7 so first day is always included
-
-      dayEntries.forEach((entry, index) => {
-        if (
-          index === 0 ||
-          index - lastSelectedIndex >= 7 ||
-          index === dayEntries.length - 1
-        ) {
-          selectedDays.push(entry);
-          lastSelectedIndex = index;
-        }
-      });
-
-      labels = selectedDays.map(([date]) => {
-        const d = new Date(date);
-        return d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
-      });
-      data = selectedDays.map(([, amount]) => amount);
+      // For month view, only show days that have transactions (non-zero amounts)
+      // This ensures all transactions are visible
+      dayEntries = Object.entries(days)
+        .filter(([_, amount]) => amount > 0)
+        .sort((a, b) => a[0].localeCompare(b[0]));
     }
 
-    return { labels, data };
-  }, [filteredTransactions, viewType]);
+    let chartDataPoints: Array<{ value: number; label: string }> = [];
+
+    if (viewType === "week") {
+      chartDataPoints = dayEntries.map(([date, amount]) => {
+        const d = new Date(date + "T00:00:00"); // Add time to avoid timezone issues
+        return {
+          value: amount,
+          label: d.toLocaleDateString("en-US", { weekday: "short" }),
+        };
+      });
+    } else {
+      // For month view, show all days with transactions
+      // If there are many days, we might need to limit labels to prevent crowding
+      chartDataPoints = dayEntries.map(([date, amount]) => {
+        const d = new Date(date + "T00:00:00"); // Add time to avoid timezone issues
+        // Use M/D format (e.g., "11/5") for month view
+        return {
+          value: amount,
+          label: `${d.getMonth() + 1}/${d.getDate()}`,
+        };
+      });
+    }
+
+    return chartDataPoints;
+  }, [filteredTransactions, viewType, currentPeriod]);
 
   // Format period label
   const periodLabel = useMemo(() => {
@@ -199,14 +216,21 @@ export default function TransactionsScreen() {
 
   // Format date for display
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Parse date string (YYYY-MM-DD) in local timezone
+    const [year, month, day] = dateString.split("T")[0].split("-").map(Number);
+    const date = new Date(year, month - 1, day);
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.toDateString() === today.toDateString()) {
+    // Compare dates without time
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0);
+
+    if (dateOnly.getTime() === today.getTime()) {
       return "Today";
-    } else if (date.toDateString() === yesterday.toDateString()) {
+    } else if (dateOnly.getTime() === yesterday.getTime()) {
       return "Yesterday";
     } else {
       return date.toLocaleDateString("en-US", {
@@ -215,136 +239,6 @@ export default function TransactionsScreen() {
         year:
           date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
       });
-    }
-  };
-
-  // Dev function to add sample transactions
-  const addSampleTransactions = async () => {
-    if (!user?.id || categories.length === 0) {
-      console.log("Need user and categories to add sample data");
-      return;
-    }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const twoDaysAgo = new Date(today);
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-    const lastWeek = new Date(today);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-
-    // Get some category IDs
-    const groceriesCategory =
-      categories.find((cat) => cat.name === "Groceries")?.id ||
-      categories[0]?.id;
-    const eatingOutCategory =
-      categories.find((cat) => cat.name === "Eating out")?.id ||
-      categories[0]?.id;
-    const entertainmentCategory =
-      categories.find((cat) => cat.name === "Entertainment")?.id ||
-      categories[0]?.id;
-    const transportationCategory =
-      categories.find((cat) => cat.name === "Transportation")?.id ||
-      categories[0]?.id;
-
-    const sampleTransactions = [
-      // Today
-      {
-        user_id: user.id,
-        amount: 45.5,
-        date: today.toISOString().split("T")[0],
-        category_id: eatingOutCategory,
-        description: "Lunch at Cafe",
-        account: "Chase Checking",
-        is_expense: true,
-      },
-      {
-        user_id: user.id,
-        amount: 2500.0,
-        date: today.toISOString().split("T")[0],
-        category_id: groceriesCategory, // Use a category for income
-        description: "Salary",
-        account: "Chase Checking",
-        is_expense: false,
-      },
-      // Yesterday
-      {
-        user_id: user.id,
-        amount: 125.75,
-        date: yesterday.toISOString().split("T")[0],
-        category_id: groceriesCategory,
-        description: "Whole Foods Shopping",
-        account: "Chase Credit Card",
-        is_expense: true,
-      },
-      {
-        user_id: user.id,
-        amount: 15.0,
-        date: yesterday.toISOString().split("T")[0],
-        category_id: transportationCategory,
-        description: "Uber ride",
-        account: "Chase Credit Card",
-        is_expense: true,
-      },
-      {
-        user_id: user.id,
-        amount: 35.0,
-        date: yesterday.toISOString().split("T")[0],
-        category_id: entertainmentCategory,
-        description: "Movie tickets",
-        account: "Chase Credit Card",
-        is_expense: true,
-      },
-      // Two days ago
-      {
-        user_id: user.id,
-        amount: 89.99,
-        date: twoDaysAgo.toISOString().split("T")[0],
-        category_id: groceriesCategory,
-        description: "Target shopping",
-        account: "Chase Credit Card",
-        is_expense: true,
-      },
-      {
-        user_id: user.id,
-        amount: 12.5,
-        date: twoDaysAgo.toISOString().split("T")[0],
-        category_id: eatingOutCategory,
-        description: "Coffee",
-        account: "Chase Checking",
-        is_expense: true,
-      },
-      // Last week
-      {
-        user_id: user.id,
-        amount: 200.0,
-        date: lastWeek.toISOString().split("T")[0],
-        category_id: transportationCategory,
-        description: "Gas",
-        account: "Chase Credit Card",
-        is_expense: true,
-      },
-      {
-        user_id: user.id,
-        amount: 1500.0,
-        date: lastWeek.toISOString().split("T")[0],
-        category_id: groceriesCategory, // Use a category for income too
-        description: "Freelance payment",
-        account: "Chase Checking",
-        is_expense: false,
-      },
-    ];
-
-    try {
-      for (const transaction of sampleTransactions) {
-        await addTransaction(transaction);
-      }
-      // Refresh the list
-      await fetchTransactions(user.id);
-    } catch (error) {
-      console.error("Error adding sample transactions:", error);
     }
   };
 
@@ -596,16 +490,6 @@ export default function TransactionsScreen() {
           <AnimatedTitle pathMatch="transactions" style={styles.title}>
             Transactions
           </AnimatedTitle>
-          {__DEV__ && (
-            <Pressable
-              onPress={addSampleTransactions}
-              style={{ marginTop: 8, alignSelf: "flex-end" }}
-            >
-              <Text style={{ color: theme.primary, fontWeight: "600" }}>
-                DEV: Add Sample Data
-              </Text>
-            </Pressable>
-          )}
         </View>
       </View>
 
@@ -711,60 +595,79 @@ export default function TransactionsScreen() {
               </View>
             </View>
             <View style={styles.chartWrapper}>
-              <BarChart
-                data={{
-                  labels: chartData.labels,
-                  datasets: [{ data: chartData.data }],
-                }}
-                width={Dimensions.get("window").width - 40}
-                height={200}
-                yAxisLabel="$"
-                yAxisSuffix=""
-                chartConfig={{
-                  backgroundColor: "transparent",
-                  backgroundGradientFrom: "transparent",
-                  backgroundGradientTo: "transparent",
-                  decimalPlaces: 0,
-                  color: (opacity = 1) => {
-                    // Convert hex color to rgba
-                    const hex = theme.expense.replace("#", "");
-                    const r = parseInt(hex.substring(0, 2), 16);
-                    const g = parseInt(hex.substring(2, 4), 16);
-                    const b = parseInt(hex.substring(4, 6), 16);
-                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-                  },
-                  labelColor: (opacity = 1) => {
-                    // Convert hex color to rgba
-                    const hex = theme.textSecondary.replace("#", "");
-                    const r = parseInt(hex.substring(0, 2), 16);
-                    const g = parseInt(hex.substring(2, 4), 16);
-                    const b = parseInt(hex.substring(4, 6), 16);
-                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-                  },
-                  style: {
-                    borderRadius: 0,
-                  },
-                  propsForBackgroundLines: {
-                    strokeDasharray: "",
-                    stroke: theme.divider,
-                    strokeWidth: 0.5,
-                  },
-                  propsForLabels: {
-                    fontSize: 11,
-                    fontWeight: "400",
-                  },
-                  barPercentage: 0.6,
-                  fillShadowGradient: theme.expense,
-                  fillShadowGradientOpacity: 1,
-                }}
-                verticalLabelRotation={0}
-                fromZero
-                showValuesOnTopOfBars={false}
-                withInnerLines={true}
-                withHorizontalLabels={true}
-                withVerticalLabels={true}
-                segments={4}
-              />
+              {(() => {
+                const screenWidth = Dimensions.get("window").width;
+                const chartWidth = screenWidth - 40; // Account for padding
+                const dataPoints = chartData.length;
+
+                // Calculate dynamic bar width and spacing to use full width
+                let barWidth: number;
+                let spacing: number;
+
+                if (viewType === "week") {
+                  // For week (7 days), use fixed spacing
+                  spacing = 8;
+                  barWidth = Math.max(
+                    20,
+                    (chartWidth - (dataPoints - 1) * spacing - 60) / dataPoints
+                  );
+                } else {
+                  // For month, calculate based on number of data points (should be ~4-5 for 7 days apart)
+                  spacing = 12;
+                  barWidth = Math.max(
+                    25,
+                    (chartWidth - (dataPoints - 1) * spacing - 60) / dataPoints
+                  );
+                }
+
+                return (
+                  <BarChart
+                    key={`chart-${chartData.length}-${JSON.stringify(
+                      chartData.map((d) => d.value)
+                    )}`}
+                    data={chartData}
+                    width={chartWidth}
+                    height={200}
+                    barWidth={barWidth}
+                    spacing={spacing}
+                    frontColor={theme.expense}
+                    gradientColor={theme.expense}
+                    showGradient
+                    isAnimated
+                    animationDuration={800}
+                    noOfSections={4}
+                    maxValue={
+                      chartData.length > 0
+                        ? Math.max(...chartData.map((d) => d.value), 0) * 1.1 ||
+                          100
+                        : 100
+                    }
+                    yAxisThickness={0.5}
+                    xAxisThickness={0.5}
+                    yAxisTextStyle={{
+                      color: theme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: "400",
+                    }}
+                    xAxisLabelTextStyle={{
+                      color: theme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: "400",
+                    }}
+                    rulesColor={theme.divider}
+                    rulesType="solid"
+                    showYAxisIndices={false}
+                    showXAxisIndices={false}
+                    formatYLabel={(value) =>
+                      `$${Math.round(parseFloat(value))}`
+                    }
+                    showValuesAsTopLabel={false}
+                    barBorderTopLeftRadius={4}
+                    barBorderTopRightRadius={4}
+                    backgroundColor="transparent"
+                  />
+                );
+              })()}
             </View>
           </View>
         )}

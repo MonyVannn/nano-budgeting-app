@@ -1,9 +1,10 @@
 import * as Haptics from "expo-haptics";
-import { Tabs } from "expo-router";
-import React from "react";
+import { Tabs, router } from "expo-router";
+import React, { useEffect } from "react";
 import { Pressable } from "react-native";
 
 import { useTheme } from "@/constants/ThemeContext";
+import { useAuthStore } from "@/store";
 import { BarChart3, CreditCard, Home, UserCircle } from "lucide-react-native";
 
 // Custom tab bar button with haptic feedback
@@ -30,6 +31,22 @@ const TabBarButton = ({ children, onPress, accessibilityState }: any) => {
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const { user, session } = useAuthStore();
+
+  // Guard: Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (!user || !session) {
+      const timer = setTimeout(() => {
+        router.replace("/(auth)/sign-in");
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [user, session]);
+
+  // Don't render tabs if not authenticated
+  if (!user || !session) {
+    return null;
+  }
 
   return (
     <Tabs
