@@ -96,6 +96,10 @@ function RootLayoutNav() {
     isLoading: categoriesLoading,
     clearCategories,
   } = useCategoryStore();
+  const expenseCategoryCount = useMemo(
+    () => categories.filter((cat) => cat.type === "expense").length,
+    [categories]
+  );
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
 
@@ -117,11 +121,9 @@ function RootLayoutNav() {
 
     // Only check onboarding if we have a user, aren't already checking, and categories aren't loading
     if (user?.id && !isCheckingOnboarding && !categoriesLoading) {
-      console.log("Starting onboarding check for user", user.id);
       setIsCheckingOnboarding(true);
       fetchCategories(user.id)
         .then(() => {
-          console.log("Categories fetched successfully");
           // Ensure categories are loaded before marking as checked
           // Categories are now in the store, navigation effect will pick them up
           setHasCheckedOnboarding(true);
@@ -129,39 +131,20 @@ function RootLayoutNav() {
           // Trigger navigation immediately if we're on auth screen
           // Get fresh categories from store
           const currentCategories = useCategoryStore.getState().categories;
-          console.log(
-            "Categories in store after fetch:",
-            currentCategories.length
+          const expenseCurrentCategories = currentCategories.filter(
+            (cat) => cat.type === "expense"
           );
 
-          console.log("Navigation check:", {
-            isAuthRoute,
-            isTabsRoute,
-            pathname,
-            categoriesCount: currentCategories.length,
-          });
-
           if (isAuthRoute && !isTabsRoute) {
-            if (currentCategories.length > 0) {
-              console.log(
-                "Direct navigation to tabs after categories loaded",
-                currentCategories.length
-              );
+            if (expenseCurrentCategories.length > 0) {
               setTimeout(() => {
                 router.replace("/(tabs)");
               }, 100);
             } else {
-              console.log("Direct navigation to onboarding after check");
               setTimeout(() => {
                 router.replace("/(onboarding)/select-categories" as any);
               }, 100);
             }
-          } else {
-            console.log("Not navigating - conditions not met", {
-              isAuthRoute,
-              isTabsRoute,
-              pathname,
-            });
           }
         })
         .catch((error) => {
@@ -171,7 +154,6 @@ function RootLayoutNav() {
 
           // Still try to navigate on error
           if (isAuthRoute && !isTabsRoute) {
-            console.log("Error occurred, navigating to onboarding");
             setTimeout(() => {
               router.replace("/(onboarding)/select-categories" as any);
             }, 100);
@@ -224,8 +206,7 @@ function RootLayoutNav() {
 
     // If categories are loaded and we're on auth screen, navigate immediately
     // This handles existing users - don't wait for onboarding check
-    if (categories.length > 0 && isAuthRoute && !isTabsRoute) {
-      console.log("Navigating to tabs - categories loaded", categories.length);
+    if (expenseCategoryCount > 0 && isAuthRoute && !isTabsRoute) {
       const timer = setTimeout(() => {
         router.replace("/(tabs)");
       }, 100);
@@ -233,23 +214,15 @@ function RootLayoutNav() {
     }
 
     // If no categories yet, wait for onboarding check but with timeout
-    if (categories.length === 0 && isAuthRoute && !isTabsRoute) {
+    if (expenseCategoryCount === 0 && isAuthRoute && !isTabsRoute) {
       if (isCheckingOnboarding || categoriesLoading || !hasCheckedOnboarding) {
-        console.log("Waiting for categories to load", {
-          isCheckingOnboarding,
-          categoriesLoading,
-          hasCheckedOnboarding,
-        });
         // Set timeout to prevent getting stuck
         const timeoutId = setTimeout(() => {
-          console.log("Timeout - navigating to onboarding");
           router.replace("/(onboarding)/select-categories" as any);
         }, 2000);
         return () => clearTimeout(timeoutId);
       }
 
-      // Check complete and still no categories - go to onboarding
-      console.log("No categories found - navigating to onboarding");
       const timer = setTimeout(() => {
         router.replace("/(onboarding)/select-categories" as any);
       }, 100);
@@ -261,7 +234,7 @@ function RootLayoutNav() {
     hasCheckedOnboarding,
     categoriesLoading,
     isCheckingOnboarding,
-    categories.length,
+    expenseCategoryCount,
     isAuthRoute,
     isTabsRoute,
     isOnboardingRoute,

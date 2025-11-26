@@ -1,4 +1,3 @@
-import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useMemo } from "react";
@@ -85,9 +84,7 @@ export default function ReportScreen() {
       {/* Sticky Header */}
       <View style={stickyHeaderStyle}>
         <View style={styles.header}>
-          <AnimatedTitle pathMatch="report" style={styles.title}>
-            Report
-          </AnimatedTitle>
+          <Text style={styles.title}>Report</Text>
         </View>
       </View>
 

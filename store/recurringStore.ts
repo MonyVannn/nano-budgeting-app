@@ -27,6 +27,7 @@ interface RecurringTransactionState {
 
   // Generate transactions from recurring entries
   generateUpcomingTransactions: (userId: string) => Promise<void>;
+  clearRecurringTransactions: () => void;
 }
 
 export const useRecurringStore = create<RecurringTransactionState>(
@@ -158,6 +159,10 @@ export const useRecurringStore = create<RecurringTransactionState>(
 
       console.log("Generate upcoming transactions for user:", userId);
       // Placeholder for now - implement with actual business logic
+    },
+
+    clearRecurringTransactions: () => {
+      set({ recurringTransactions: [] });
     },
   })
 );

@@ -88,9 +88,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       }
 
       set((state) => ({
-        categories: state.categories.map((cat) =>
-          cat.id === id ? data : cat
-        ),
+        categories: state.categories.map((cat) => (cat.id === id ? data : cat)),
       }));
     } catch (error) {
       console.error("Error updating category:", error);

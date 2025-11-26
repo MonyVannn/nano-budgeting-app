@@ -138,6 +138,7 @@ export default function AllocateBudgetScreen() {
             name: category.name,
             expected_amount: budget,
             frequency: category.frequency,
+            type: "expense",
           });
         }
       }

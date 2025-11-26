@@ -5,7 +5,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar, ChevronDown } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -88,9 +88,35 @@ export default function AddTransactionDetailsScreen() {
     });
   };
 
+  const expenseCategories = useMemo(
+    () => categories.filter((cat) => cat.type === "expense"),
+    [categories]
+  );
+  const incomeCategories = useMemo(
+    () => categories.filter((cat) => cat.type === "income"),
+    [categories]
+  );
+
+  const availableCategories = isExpense ? expenseCategories : incomeCategories;
+
   const selectedCategory = categories.find(
     (cat) => cat.id === selectedCategoryId
   );
+
+  useEffect(() => {
+    if (availableCategories.length === 0) {
+      setSelectedCategoryId(null);
+      return;
+    }
+    if (
+      selectedCategoryId &&
+      !availableCategories.some((cat) => cat.id === selectedCategoryId)
+    ) {
+      setSelectedCategoryId(availableCategories[0].id);
+    } else if (!selectedCategoryId) {
+      setSelectedCategoryId(availableCategories[0].id);
+    }
+  }, [availableCategories, selectedCategoryId]);
 
   const styles = StyleSheet.create({
     container: {
@@ -211,6 +237,31 @@ export default function AddTransactionDetailsScreen() {
       fontSize: 16,
       color: theme.text,
     },
+        emptyCategoryState: {
+          padding: 16,
+          borderRadius: 12,
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+          backgroundColor: theme.surface,
+          alignItems: "center",
+          gap: 12,
+        },
+        emptyCategoryText: {
+          fontSize: 14,
+          color: theme.textSecondary,
+          textAlign: "center",
+        },
+        emptyCategoryButton: {
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          borderRadius: 20,
+          backgroundColor: theme.primary,
+        },
+        emptyCategoryButtonText: {
+          color: theme.background,
+          fontSize: 14,
+          fontWeight: "600",
+        },
     dateButton: {
       flexDirection: "row",
       alignItems: "center",
@@ -391,58 +442,85 @@ export default function AddTransactionDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Category</Text>
           <View style={{ position: "relative" }}>
-            <Pressable
-              style={styles.dropdownButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowCategoryDropdown(!showCategoryDropdown);
-              }}
-            >
-              <Text
-                style={
-                  selectedCategory
-                    ? styles.dropdownButtonText
-                    : styles.dropdownButtonPlaceholder
-                }
-              >
-                {selectedCategory?.name || "Select category"}
-              </Text>
-              <ChevronDown size={20} color={theme.textSecondary} />
-            </Pressable>
-            {showCategoryDropdown && (
-              <View style={styles.dropdownMenuWrapper}>
-                <View style={styles.dropdownMenu}>
-                  <ScrollView
-                    style={{ maxHeight: 300 }}
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {categories.map((category, index) => (
-                      <Pressable
-                        key={category.id}
-                        style={[
-                          styles.dropdownItem,
-                          index === categories.length - 1 &&
-                            styles.dropdownItemLast,
-                          selectedCategoryId === category.id && {
-                            backgroundColor: theme.surfaceHighlight,
-                          },
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(
-                            Haptics.ImpactFeedbackStyle.Light
-                          );
-                          setSelectedCategoryId(category.id);
-                          setShowCategoryDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>
-                          {category.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
+            {availableCategories.length === 0 ? (
+              <View style={styles.emptyCategoryState}>
+                <Text style={styles.emptyCategoryText}>
+                  No {isExpense ? "expense" : "income"} categories yet.
+                </Text>
+                <Pressable
+                  style={styles.emptyCategoryButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push({
+                      pathname: "/add-category",
+                      params: {
+                        type: isExpense ? "expense" : "income",
+                        frequency: "monthly",
+                      },
+                    });
+                  }}
+                >
+                  <Text style={styles.emptyCategoryButtonText}>
+                    Add a category
+                  </Text>
+                </Pressable>
               </View>
+            ) : (
+              <>
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowCategoryDropdown(!showCategoryDropdown);
+                  }}
+                >
+                  <Text
+                    style={
+                      selectedCategory
+                        ? styles.dropdownButtonText
+                        : styles.dropdownButtonPlaceholder
+                    }
+                  >
+                    {selectedCategory?.name || "Select category"}
+                  </Text>
+                  <ChevronDown size={20} color={theme.textSecondary} />
+                </Pressable>
+                {showCategoryDropdown && (
+                  <View style={styles.dropdownMenuWrapper}>
+                    <View style={styles.dropdownMenu}>
+                      <ScrollView
+                        style={{ maxHeight: 300 }}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        {availableCategories.map((category, index) => (
+                          <Pressable
+                            key={category.id}
+                            style={[
+                              styles.dropdownItem,
+                              index === availableCategories.length - 1 &&
+                                styles.dropdownItemLast,
+                              selectedCategoryId === category.id && {
+                                backgroundColor: theme.surfaceHighlight,
+                              },
+                            ]}
+                            onPress={() => {
+                              Haptics.impactAsync(
+                                Haptics.ImpactFeedbackStyle.Light
+                              );
+                              setSelectedCategoryId(category.id);
+                              setShowCategoryDropdown(false);
+                            }}
+                          >
+                            <Text style={styles.dropdownItemText}>
+                              {category.name}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+                )}
+              </>
             )}
           </View>
         </View>

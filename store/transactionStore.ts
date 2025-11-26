@@ -21,6 +21,9 @@ interface TransactionState {
   deleteTransaction: (id: string) => Promise<void>;
   importFromCSV: (transactions: TransactionInsert[]) => Promise<void>;
 
+  // Helpers
+  clearTransactions: () => void;
+
   // Computed values
   getTotalIncome: (startDate?: string, endDate?: string) => number;
   getTotalExpenses: (startDate?: string, endDate?: string) => number;
@@ -202,5 +205,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   getTransactionsByCategory: (categoryId: string) => {
     const { transactions } = get();
     return transactions.filter((txn) => txn.category_id === categoryId);
+  },
+
+  clearTransactions: () => {
+    set({ transactions: [] });
   },
 }));

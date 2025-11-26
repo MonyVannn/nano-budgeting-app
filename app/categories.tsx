@@ -40,6 +40,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
+type CategoryType = Database["public"]["Enums"]["category_type"];
 
 // Category icon mapping
 const getCategoryIcon = (categoryName: string) => {
@@ -99,12 +100,14 @@ const CategoryItem = React.memo(
     showFreqDropdown,
     styles,
     theme,
+    currentType,
     onNameChange,
     onNameBlur,
     onAmountChange,
     onAmountBlur,
     onToggleExpanded,
     onFrequencyChange,
+    onTypeChange,
     onDelete,
     onSetShowCategoryTypeDropdown,
     onSetShowFrequencyDropdown,
@@ -118,12 +121,14 @@ const CategoryItem = React.memo(
     showFreqDropdown: boolean;
     styles: any;
     theme: any;
+    currentType: CategoryType;
     onNameChange: (value: string) => void;
     onNameBlur: () => void;
     onAmountChange: (value: string) => void;
     onAmountBlur: () => void;
     onToggleExpanded: () => void;
     onFrequencyChange: (frequency: "weekly" | "monthly") => void;
+    onTypeChange: (type: CategoryType) => void;
     onDelete: () => void;
     onSetShowCategoryTypeDropdown: (show: boolean) => void;
     onSetShowFrequencyDropdown: (show: boolean) => void;
@@ -207,7 +212,9 @@ const CategoryItem = React.memo(
                     onSetShowFrequencyDropdown(false);
                   }}
                 >
-                  <Text style={styles.dropdownText}>Expense</Text>
+                  <Text style={styles.dropdownText}>
+                    {currentType === "expense" ? "Expense" : "Income"}
+                  </Text>
                   <ChevronDown size={16} color={theme.primary} />
                 </Pressable>
                 {showTypeDropdown && (
@@ -215,6 +222,7 @@ const CategoryItem = React.memo(
                     <Pressable
                       style={styles.dropdownItem}
                       onPress={() => {
+                        onTypeChange("expense");
                         onSetShowCategoryTypeDropdown(false);
                       }}
                     >
@@ -223,6 +231,7 @@ const CategoryItem = React.memo(
                     <Pressable
                       style={[styles.dropdownItem, styles.dropdownItemLast]}
                       onPress={() => {
+                        onTypeChange("income");
                         onSetShowCategoryTypeDropdown(false);
                       }}
                     >
@@ -278,6 +287,7 @@ const CategoryItem = React.memo(
     // Custom comparison - only re-render if relevant props changed
     return (
       prevProps.category.id === nextProps.category.id &&
+      prevProps.category.type === nextProps.category.type &&
       prevProps.editingName === nextProps.editingName &&
       prevProps.editingAmount === nextProps.editingAmount &&
       prevProps.isExpanded === nextProps.isExpanded &&
@@ -352,12 +362,24 @@ export default function CategoriesScreen() {
     });
   }, [categories.length]); // Only depend on length to prevent re-initialization
 
+  const expenseCategories = useMemo(
+    () => categories.filter((cat) => cat.type === "expense"),
+    [categories]
+  );
+
+  const incomeCategories = useMemo(
+    () => categories.filter((cat) => cat.type === "income"),
+    [categories]
+  );
+
   // Group categories by frequency - use a stable reference to prevent unnecessary re-renders
   const { weeklyCategories, monthlyCategories } = useMemo(() => {
-    const weekly = categories.filter((cat) => cat.frequency === "weekly");
-    const monthly = categories.filter((cat) => cat.frequency === "monthly");
+    const weekly = expenseCategories.filter((cat) => cat.frequency === "weekly");
+    const monthly = expenseCategories.filter(
+      (cat) => cat.frequency === "monthly"
+    );
     return { weeklyCategories: weekly, monthlyCategories: monthly };
-  }, [categories]);
+  }, [expenseCategories]);
 
   // Calculate totals
   const weeklyTotal = useMemo(
@@ -494,6 +516,40 @@ export default function CategoriesScreen() {
     [categories, updateCategory, user?.id, fetchCategories]
   );
 
+  const handleTypeChange = useCallback(
+    async (categoryId: string, type: CategoryType) => {
+      const category = categories.find((c) => c.id === categoryId);
+      if (!category || category.type === type) {
+        setShowCategoryTypeDropdown((prev) => ({ ...prev, [categoryId]: false }));
+        return;
+      }
+
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const payload: Database["public"]["Tables"]["categories"]["Update"] = {
+          type,
+        };
+        if (type === "income") {
+          payload.expected_amount = 0;
+          setEditingAmounts((prev) => ({ ...prev, [categoryId]: "0" }));
+        }
+        await updateCategory(categoryId, payload);
+        setShowCategoryTypeDropdown((prev) => ({ ...prev, [categoryId]: false }));
+        setExpandedCategories((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(categoryId);
+          return newSet;
+        });
+      } catch (error: any) {
+        Alert.alert("Error", error.message || "Failed to update category type");
+        if (user?.id) {
+          await fetchCategories(user.id);
+        }
+      }
+    },
+    [categories, updateCategory, fetchCategories, user?.id]
+  );
+
   const handleDelete = useCallback(
     (categoryId: string, categoryName: string) => {
       Alert.alert(
@@ -536,24 +592,24 @@ export default function CategoriesScreen() {
 
   const handleAmountBlur = useCallback(
     async (categoryId: string) => {
+      const category = categories.find((c) => c.id === categoryId);
+      if (!category || category.type === "income") {
+        return;
+      }
       const value = editingAmounts[categoryId] || "0";
       const amount = parseFloat(value) || 0;
 
       if (amount < 0) {
         Alert.alert("Error", "Amount cannot be negative");
         // Reset to original value
-        const category = categories.find((c) => c.id === categoryId);
-        if (category) {
-          setEditingAmounts((prev) => ({
-            ...prev,
-            [categoryId]: category.expected_amount.toString(),
-          }));
-        }
+        setEditingAmounts((prev) => ({
+          ...prev,
+          [categoryId]: category.expected_amount.toString(),
+        }));
         return;
       }
 
-      const category = categories.find((c) => c.id === categoryId);
-      if (category && category.expected_amount !== amount) {
+      if (category.expected_amount !== amount) {
         try {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           // Update in database - the store will update optimistically
@@ -562,12 +618,10 @@ export default function CategoriesScreen() {
         } catch (error: any) {
           Alert.alert("Error", error.message || "Failed to update category");
           // Reset to original value on error
-          if (category) {
-            setEditingAmounts((prev) => ({
-              ...prev,
-              [categoryId]: category.expected_amount.toString(),
-            }));
-          }
+          setEditingAmounts((prev) => ({
+            ...prev,
+            [categoryId]: category.expected_amount.toString(),
+          }));
           // Refetch on error to restore correct state
           if (user?.id) {
             await fetchCategories(user.id);
@@ -581,8 +635,8 @@ export default function CategoriesScreen() {
   const handleDone = () => {
     Keyboard.dismiss();
     // Save any pending changes
-    Object.keys(editingAmounts).forEach((categoryId) => {
-      handleAmountBlur(categoryId);
+    expenseCategories.forEach((category) => {
+      handleAmountBlur(category.id);
     });
     setHasChanges(false);
     router.back();
@@ -596,10 +650,13 @@ export default function CategoriesScreen() {
     );
   };
 
-  const handleAddCategory = (frequency: "weekly" | "monthly") => {
+  const handleAddCategory = (
+    frequency: "weekly" | "monthly",
+    type: CategoryType = "expense"
+  ) => {
     router.push({
       pathname: "/add-category",
-      params: { frequency },
+      params: { frequency, type },
     });
   };
 
@@ -836,6 +893,41 @@ export default function CategoriesScreen() {
           color: theme.textSecondary,
           marginLeft: 8,
         },
+        incomeItem: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.divider,
+        },
+        incomeTextWrapper: {
+          flex: 1,
+          marginRight: 12,
+        },
+        incomeName: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: theme.text,
+          marginBottom: 4,
+        },
+        incomeSubtext: {
+          fontSize: 13,
+          color: theme.textSecondary,
+        },
+        incomeBadge: {
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 999,
+          backgroundColor: theme.income + "20",
+        },
+        incomeBadgeText: {
+          fontSize: 12,
+          fontWeight: "600",
+          color: theme.income,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        },
         loadingContainer: {
           flex: 1,
           justifyContent: "center",
@@ -908,6 +1000,7 @@ export default function CategoriesScreen() {
                     }
                     styles={styles}
                     theme={theme}
+                    currentType={category.type}
                     onNameChange={(value: string) =>
                       handleNameChange(category.id, value)
                     }
@@ -919,6 +1012,9 @@ export default function CategoriesScreen() {
                     onToggleExpanded={() => toggleCategoryExpanded(category.id)}
                     onFrequencyChange={(frequency: "weekly" | "monthly") =>
                       handleFrequencyChange(category.id, frequency)
+                    }
+                    onTypeChange={(type: CategoryType) =>
+                      handleTypeChange(category.id, type)
                     }
                     onDelete={() => handleDelete(category.id, category.name)}
                     onSetShowCategoryTypeDropdown={(show: boolean) =>
@@ -937,7 +1033,7 @@ export default function CategoriesScreen() {
                 ))}
                 <Pressable
                   style={styles.addCategoryButton}
-                  onPress={() => handleAddCategory("weekly")}
+                  onPress={() => handleAddCategory("weekly", "expense")}
                 >
                   <Plus size={18} color={theme.textSecondary} />
                   <Text style={styles.addCategoryText}>Add new category</Text>
@@ -973,6 +1069,7 @@ export default function CategoriesScreen() {
                     }
                     styles={styles}
                     theme={theme}
+                    currentType={category.type}
                     onNameChange={(value: string) =>
                       handleNameChange(category.id, value)
                     }
@@ -984,6 +1081,9 @@ export default function CategoriesScreen() {
                     onToggleExpanded={() => toggleCategoryExpanded(category.id)}
                     onFrequencyChange={(frequency: "weekly" | "monthly") =>
                       handleFrequencyChange(category.id, frequency)
+                    }
+                    onTypeChange={(type: CategoryType) =>
+                      handleTypeChange(category.id, type)
                     }
                     onDelete={() => handleDelete(category.id, category.name)}
                     onSetShowCategoryTypeDropdown={(show: boolean) =>
@@ -1002,10 +1102,59 @@ export default function CategoriesScreen() {
                 ))}
                 <Pressable
                   style={styles.addCategoryButton}
-                  onPress={() => handleAddCategory("monthly")}
+                  onPress={() => handleAddCategory("monthly", "expense")}
                 >
                   <Plus size={18} color={theme.textSecondary} />
                   <Text style={styles.addCategoryText}>Add new category</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Income Categories */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Income Categories</Text>
+                <Text style={styles.sectionTotal}>
+                  {incomeCategories.length}{" "}
+                  {incomeCategories.length === 1 ? "source" : "sources"}
+                </Text>
+              </View>
+              <View style={styles.categoryListWrapper}>
+                {incomeCategories.length === 0 ? (
+                  <View style={styles.incomeItem}>
+                    <Text style={styles.incomeSubtext}>
+                      Add income categories to organize your paychecks or other
+                      revenue streams.
+                    </Text>
+                  </View>
+                ) : (
+                  incomeCategories.map((category, index) => (
+                    <View
+                      key={category.id}
+                      style={[
+                        styles.incomeItem,
+                        index === incomeCategories.length - 1 &&
+                          styles.categoryItemLast,
+                      ]}
+                    >
+                      <View style={styles.incomeTextWrapper}>
+                        <Text style={styles.incomeName}>{category.name}</Text>
+                        <Text style={styles.incomeSubtext}>
+                          Tracked when you log income transactions
+                        </Text>
+                      </View>
+                      <View style={styles.incomeBadge}>
+                        <Text style={styles.incomeBadgeText}>Income</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+                <Pressable
+                  style={styles.addCategoryButton}
+                  onPress={() => handleAddCategory("monthly", "income")}
+                >
+                  <Plus size={18} color={theme.textSecondary} />
+                  <Text style={styles.addCategoryText}>Add income category</Text>
                 </Pressable>
               </View>
             </View>

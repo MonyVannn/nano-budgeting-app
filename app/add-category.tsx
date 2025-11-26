@@ -29,6 +29,10 @@ export default function AddCategoryScreen() {
   const [name, setName] = useState("");
   const [expectedAmount, setExpectedAmount] = useState("");
   const frequency = (params.frequency as "weekly" | "monthly") || "monthly";
+  const initialType =
+    (params.type as "expense" | "income" | undefined) || "expense";
+  const [categoryType, setCategoryType] =
+    useState<"expense" | "income">(initialType);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -37,8 +41,9 @@ export default function AddCategoryScreen() {
       return;
     }
 
-    const amount = parseFloat(expectedAmount) || 0;
-    if (amount < 0) {
+    const amount =
+      categoryType === "expense" ? parseFloat(expectedAmount) || 0 : 0;
+    if (categoryType === "expense" && amount < 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Error", "Budget amount cannot be negative");
       return;
@@ -51,6 +56,7 @@ export default function AddCategoryScreen() {
         name: name.trim(),
         expected_amount: amount,
         frequency: frequency,
+        type: categoryType,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
@@ -109,6 +115,31 @@ export default function AddCategoryScreen() {
         },
         section: {
           marginBottom: 32,
+        },
+        typeToggle: {
+          flexDirection: "row",
+          backgroundColor: theme.surface,
+          borderRadius: 12,
+          padding: 4,
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+        },
+        typeToggleButton: {
+          flex: 1,
+          paddingVertical: 12,
+          borderRadius: 8,
+          alignItems: "center",
+        },
+        typeToggleButtonActive: {
+          backgroundColor: theme.primary,
+        },
+        typeToggleText: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: theme.textSecondary,
+        },
+        typeToggleTextActive: {
+          color: theme.background,
         },
         label: {
           fontSize: 14,
@@ -212,9 +243,63 @@ export default function AddCategoryScreen() {
           </View>
         </View>
 
+        {/* Category Type */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Category Type</Text>
+          <View style={styles.typeToggle}>
+            <Pressable
+              style={[
+                styles.typeToggleButton,
+                categoryType === "expense" && styles.typeToggleButtonActive,
+              ]}
+              onPress={() => {
+                if (categoryType !== "expense") {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setCategoryType("expense");
+                }
+              }}
+            >
+              <Text
+                style={[
+                  styles.typeToggleText,
+                  categoryType === "expense" && styles.typeToggleTextActive,
+                ]}
+              >
+                Expense
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.typeToggleButton,
+                categoryType === "income" && styles.typeToggleButtonActive,
+              ]}
+              onPress={() => {
+                if (categoryType !== "income") {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setCategoryType("income");
+                  setExpectedAmount("");
+                }
+              }}
+            >
+              <Text
+                style={[
+                  styles.typeToggleText,
+                  categoryType === "income" && styles.typeToggleTextActive,
+                ]}
+              >
+                Income
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
         {/* Expected Amount */}
         <View style={styles.section}>
-          <Text style={styles.label}>Monthly Budget</Text>
+          <Text style={styles.label}>
+            {categoryType === "expense"
+              ? "Monthly Budget"
+              : "Income categories don't need budgets"}
+          </Text>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.amountInput}
@@ -225,6 +310,7 @@ export default function AddCategoryScreen() {
               keyboardType="decimal-pad"
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
+              editable={categoryType === "expense"}
             />
           </View>
         </View>

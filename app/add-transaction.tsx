@@ -3,10 +3,11 @@ import { useTheme } from "@/constants/ThemeContext";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { X } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -47,39 +48,11 @@ export default function AddTransactionScreen() {
     }
   };
 
-  const formatAmount = (value: string) => {
-    if (value === "0")
-      return { whole: "$0", decimal: "", firstDigit: "", secondDigit: "" };
-    const numValue = parseFloat(value);
-    if (isNaN(numValue))
-      return { whole: "$0", decimal: "", firstDigit: "", secondDigit: "" };
-
-    const formatted = numValue.toLocaleString("en-US", {
-      minimumFractionDigits: value.includes(".") ? 2 : 0,
-      maximumFractionDigits: 2,
-    });
-
-    if (formatted.includes(".")) {
-      const parts = formatted.split(".");
-      const decimalPart = parts[1] || "00";
-      return {
-        whole: `$${parts[0]}`,
-        decimal: ".",
-        firstDigit: decimalPart[0] || "0",
-        secondDigit: decimalPart[1] || "0",
-      };
-    }
-    return {
-      whole: `$${formatted}`,
-      decimal: "",
-      firstDigit: "",
-      secondDigit: "",
-    };
-  };
+  const formattedAmount = useMemo(() => formatAmount(amount), [amount]);
+  const numericAmount = useMemo(() => parseFloat(amount) || 0, [amount]);
 
   const isValidAmount = () => {
-    const numValue = parseFloat(amount);
-    return !isNaN(numValue) && numValue > 0;
+    return !isNaN(numericAmount) && numericAmount > 0;
   };
 
   // Animate button when validity changes
@@ -238,67 +211,12 @@ export default function AddTransactionScreen() {
       <View style={styles.content}>
         {/* Amount Display */}
         <View style={styles.amountSection}>
-          <View style={styles.amountDisplay}>
-            <Text
-              style={[
-                styles.amountWhole,
-                {
-                  color:
-                    isValidAmount() && parseFloat(amount) > 0
-                      ? theme.primary
-                      : theme.text,
-                },
-              ]}
-            >
-              {formatAmount(amount).whole}
-            </Text>
-            {formatAmount(amount).decimal && (
-              <>
-                {/* Decimal point */}
-                <Text
-                  style={[
-                    styles.amountDecimal,
-                    {
-                      color:
-                        formatAmount(amount).firstDigit !== "0"
-                          ? theme.primary
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  {formatAmount(amount).decimal}
-                </Text>
-                {/* First digit after decimal */}
-                <Text
-                  style={[
-                    styles.amountDecimal,
-                    {
-                      color:
-                        formatAmount(amount).firstDigit !== "0"
-                          ? theme.primary
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  {formatAmount(amount).firstDigit}
-                </Text>
-                {/* Second digit after decimal */}
-                <Text
-                  style={[
-                    styles.amountDecimal,
-                    {
-                      color:
-                        formatAmount(amount).secondDigit !== "0"
-                          ? theme.primary
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  {formatAmount(amount).secondDigit}
-                </Text>
-              </>
-            )}
-          </View>
+          <AnimatedAmountDisplay
+            formatted={formattedAmount}
+            theme={theme}
+            isPositive={isValidAmount()}
+            amountValue={numericAmount}
+          />
         </View>
 
         {/* Continue Button - Animated slide up/down from behind keypad */}
@@ -340,3 +258,213 @@ export default function AddTransactionScreen() {
     </View>
   );
 }
+
+type FormattedAmount = {
+  whole: string;
+  decimal: string;
+  firstDigit: string;
+  secondDigit: string;
+};
+
+type AmountSegment = {
+  char: string;
+  color: string;
+};
+
+const formatAmount = (value: string): FormattedAmount => {
+  if (!value || value === "0") {
+    return { whole: "$0", decimal: "", firstDigit: "", secondDigit: "" };
+  }
+
+  const hasDecimal = value.includes(".");
+  const [rawWhole = "0", rawDecimal = ""] = value.split(".");
+
+  const numericWhole = parseInt(rawWhole.replace(/[^\d]/g, "") || "0", 10);
+  const wholeFormatted = isNaN(numericWhole)
+    ? "$0"
+    : `$${numericWhole.toLocaleString("en-US")}`;
+
+  const decimalPart = hasDecimal ? rawDecimal.slice(0, 2) : "";
+
+  return {
+    whole: wholeFormatted,
+    decimal: hasDecimal ? "." : "",
+    firstDigit: decimalPart[0] || "",
+    secondDigit: decimalPart[1] || "",
+  };
+};
+
+const buildSegments = (
+  formatted: FormattedAmount,
+  theme: ReturnType<typeof useTheme>["theme"],
+  isPositive: boolean
+): AmountSegment[] => {
+  const chars: AmountSegment[] = [];
+  const wholeColor = isPositive ? theme.primary : theme.text;
+
+  for (const char of formatted.whole) {
+    chars.push({ char, color: wholeColor });
+  }
+
+  if (formatted.decimal) {
+    const decimalColor =
+      formatted.firstDigit && formatted.firstDigit !== "0"
+        ? theme.primary
+        : theme.text;
+    chars.push({ char: formatted.decimal, color: decimalColor });
+
+    if (formatted.firstDigit) {
+      chars.push({
+        char: formatted.firstDigit,
+        color: formatted.firstDigit !== "0" ? theme.primary : theme.text,
+      });
+    }
+
+    if (formatted.secondDigit) {
+      chars.push({
+        char: formatted.secondDigit,
+        color: formatted.secondDigit !== "0" ? theme.primary : theme.text,
+      });
+    }
+  }
+
+  return chars;
+};
+
+const amountDisplayStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  character: {
+    fontSize: 72,
+    fontWeight: "600",
+    letterSpacing: -1,
+  },
+  lastDigitWrapper: {
+    position: "relative",
+  },
+});
+
+const AnimatedAmountDisplay = ({
+  formatted,
+  theme,
+  amountValue,
+  isPositive,
+}: {
+  formatted: FormattedAmount;
+  theme: ReturnType<typeof useTheme>["theme"];
+  amountValue: number;
+  isPositive: boolean;
+}) => {
+  const previousValueRef = useRef(amountValue);
+  const animatedValue = useSharedValue(0);
+  const removalProgress = useSharedValue(0);
+  const previousSegmentsRef = useRef<AmountSegment[]>(
+    buildSegments(formatted, theme, isPositive)
+  );
+
+  const segments = useMemo(
+    () => buildSegments(formatted, theme, isPositive),
+    [formatted, isPositive, theme]
+  );
+  const [renderedSegments, setRenderedSegments] =
+    useState<AmountSegment[]>(segments);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  useEffect(() => {
+    if (amountValue === previousValueRef.current) {
+      setRenderedSegments(segments);
+      previousSegmentsRef.current = segments;
+      return;
+    }
+
+    const direction = amountValue > previousValueRef.current ? 1 : -1;
+    const prevSegments = previousSegmentsRef.current;
+
+    if (direction < 0 && prevSegments.length > 0) {
+      setIsRemoving(true);
+      setRenderedSegments(prevSegments);
+      removalProgress.value = 0;
+      const finalizeRemoval = () => {
+        setRenderedSegments(segments);
+        setIsRemoving(false);
+      };
+      removalProgress.value = withTiming(
+        -1,
+        {
+          duration: 120,
+          easing: Easing.out(Easing.ease),
+        },
+        () => {
+          runOnJS(finalizeRemoval)();
+        }
+      );
+      animatedValue.value = 0;
+    } else {
+      setIsRemoving(false);
+      animatedValue.value = direction;
+      animatedValue.value = withTiming(0, {
+        duration: 120,
+        easing: Easing.out(Easing.ease),
+      });
+      setRenderedSegments(segments);
+    }
+
+    previousValueRef.current = amountValue;
+    previousSegmentsRef.current = segments;
+  }, [amountValue, segments]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: animatedValue.value * 28,
+      },
+    ],
+    opacity: 1 - Math.min(Math.abs(animatedValue.value), 1),
+  }));
+
+  const removalAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: removalProgress.value * -28,
+      },
+    ],
+    opacity: 1 - Math.min(Math.abs(removalProgress.value), 1),
+  }));
+
+  const lastIndex = renderedSegments.length - 1;
+
+  return (
+    <View style={amountDisplayStyles.container}>
+      {renderedSegments.map((segment, index) => {
+        if (index === lastIndex) {
+          return (
+            <View
+              key={`${segment.char}-${index}`}
+              style={amountDisplayStyles.lastDigitWrapper}
+            >
+              <Animated.Text
+                style={[
+                  amountDisplayStyles.character,
+                  isRemoving ? removalAnimatedStyle : animatedStyle,
+                  { color: segment.color },
+                ]}
+              >
+                {segment.char}
+              </Animated.Text>
+            </View>
+          );
+        }
+        return (
+          <Text
+            key={`${segment.char}-${index}`}
+            style={[amountDisplayStyles.character, { color: segment.color }]}
+          >
+            {segment.char}
+          </Text>
+        );
+      })}
+    </View>
+  );
+};

@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  View as RNView,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -16,10 +17,11 @@ import {
 } from "react-native";
 
 export default function SignInScreen() {
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
   const { signIn, isLoading } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const isLightTheme = themeMode === "light";
 
   // Check if form is valid (both fields filled)
   const isFormValid = email.trim().length > 0 && password.trim().length > 0;
@@ -65,6 +67,7 @@ export default function SignInScreen() {
     header: {
       marginBottom: 48,
       alignItems: "center",
+      backgroundColor: theme.background,
     },
     title: {
       fontSize: 32,
@@ -84,9 +87,18 @@ export default function SignInScreen() {
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
+      backgroundColor: isLightTheme
+        ? theme.surface
+        : "rgba(255, 255, 255, 0.04)",
+      shadowColor: isLightTheme ? theme.shadow : "transparent",
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isLightTheme ? 0.08 : 0,
+      shadowRadius: isLightTheme ? 18 : 0,
+      elevation: isLightTheme ? 4 : 0,
     },
     inputGroup: {
       marginBottom: 20,
+      backgroundColor: theme.surface,
     },
     label: {
       fontSize: 14,
@@ -95,7 +107,7 @@ export default function SignInScreen() {
       marginBottom: 8,
     },
     input: {
-      backgroundColor: theme.surface,
+      backgroundColor: isLightTheme ? theme.backgroundDark : theme.surface,
       borderRadius: 12,
       padding: 16,
       fontSize: 16,
@@ -131,6 +143,7 @@ export default function SignInScreen() {
       justifyContent: "center",
       alignItems: "center",
       marginTop: 24,
+      backgroundColor: theme.background,
     },
     footerText: {
       fontSize: 14,
@@ -143,6 +156,18 @@ export default function SignInScreen() {
       color: theme.primary,
     },
   });
+
+  const cardBlurIntensity = isLightTheme ? 30 : 0;
+  const buttonBlurIntensity = isLightTheme ? 0 : 80;
+  const FormWrapper = isLightTheme ? RNView : BlurView;
+  const ButtonWrapper = isLightTheme ? RNView : BlurView;
+
+  const formWrapperProps = isLightTheme
+    ? {}
+    : { intensity: cardBlurIntensity, tint: theme.blurTint };
+  const buttonWrapperProps = isLightTheme
+    ? {}
+    : { intensity: buttonBlurIntensity, tint: theme.blurTint };
 
   return (
     <KeyboardAvoidingView
@@ -162,7 +187,7 @@ export default function SignInScreen() {
           <Text style={styles.subtitle}>Sign in to manage your budget</Text>
         </View>
 
-        <BlurView intensity={0} tint={theme.blurTint} style={styles.formCard}>
+        <FormWrapper {...formWrapperProps} style={styles.formCard}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -196,9 +221,8 @@ export default function SignInScreen() {
           </View>
 
           <View style={styles.button}>
-            <BlurView
-              intensity={80}
-              tint={theme.blurTint}
+            <ButtonWrapper
+              {...buttonWrapperProps}
               style={[
                 { backgroundColor: theme.primary },
                 (!isFormValid || isLoading) && styles.buttonDisabled,
@@ -220,9 +244,9 @@ export default function SignInScreen() {
                   {isLoading ? "Signing In..." : "Sign In"}
                 </Text>
               </TouchableOpacity>
-            </BlurView>
+            </ButtonWrapper>
           </View>
-        </BlurView>
+        </FormWrapper>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account?</Text>

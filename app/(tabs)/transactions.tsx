@@ -1,11 +1,16 @@
-import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { FABButton } from "@/components/FABButton";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,6 +37,7 @@ export default function TransactionsScreen() {
   const [viewType, setViewType] = useState<ViewType>("month");
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current period, -1 = previous, 1 = next
   const [showViewDropdown, setShowViewDropdown] = useState(false);
+  const [chartMode, setChartMode] = useState<"expense" | "income">("expense");
 
   // Fetch transactions and categories on mount and when screen comes into focus
   useFocusEffect(
@@ -111,7 +117,9 @@ export default function TransactionsScreen() {
   // Prepare chart data
   const chartData = useMemo(() => {
     const { start, end } = currentPeriod;
-    const days: { [key: string]: number } = {};
+    const days: {
+      [key: string]: { expense: number; income: number };
+    } = {};
 
     // Initialize all days in period with 0 - use local timezone
     const startDateStr = formatDateLocal(start);
@@ -121,23 +129,24 @@ export default function TransactionsScreen() {
 
     while (current <= endDate) {
       const dateKey = formatDateLocal(current);
-      days[dateKey] = 0;
+      days[dateKey] = { expense: 0, income: 0 };
       current.setDate(current.getDate() + 1);
     }
 
     // Sum expenses for each day
     filteredTransactions.forEach((txn) => {
-      if (txn.is_expense) {
-        // Ensure date is in YYYY-MM-DD format
-        const dateKey = txn.date.split("T")[0]; // Handle potential timestamp format
-        if (days[dateKey] !== undefined) {
-          days[dateKey] += parseFloat(txn.amount.toString());
+      const dateKey = txn.date.split("T")[0];
+      if (days[dateKey] !== undefined) {
+        if (txn.is_expense) {
+          days[dateKey].expense += Number(txn.amount) || 0;
+        } else {
+          days[dateKey].income += Number(txn.amount) || 0;
         }
       }
     });
 
     // Format for chart - only include days with transactions or all days for week view
-    let dayEntries: Array<[string, number]> = [];
+    let dayEntries: Array<[string, { expense: number; income: number }]> = [];
 
     if (viewType === "week") {
       // For week view, show all 7 days
@@ -146,9 +155,10 @@ export default function TransactionsScreen() {
       );
     } else {
       // For month view, only show days that have transactions (non-zero amounts)
-      // This ensures all transactions are visible
       dayEntries = Object.entries(days)
-        .filter(([_, amount]) => amount > 0)
+        .filter(([_, amount]) =>
+          chartMode === "expense" ? amount.expense > 0 : amount.income > 0
+        )
         .sort((a, b) => a[0].localeCompare(b[0]));
     }
 
@@ -158,7 +168,7 @@ export default function TransactionsScreen() {
       chartDataPoints = dayEntries.map(([date, amount]) => {
         const d = new Date(date + "T00:00:00"); // Add time to avoid timezone issues
         return {
-          value: amount,
+          value: chartMode === "expense" ? amount.expense : amount.income,
           label: d.toLocaleDateString("en-US", { weekday: "short" }),
         };
       });
@@ -169,14 +179,14 @@ export default function TransactionsScreen() {
         const d = new Date(date + "T00:00:00"); // Add time to avoid timezone issues
         // Use M/D format (e.g., "11/5") for month view
         return {
-          value: amount,
+          value: chartMode === "expense" ? amount.expense : amount.income,
           label: `${d.getMonth() + 1}/${d.getDate()}`,
         };
       });
     }
 
     return chartDataPoints;
-  }, [filteredTransactions, viewType, currentPeriod]);
+  }, [filteredTransactions, viewType, currentPeriod, chartMode]);
 
   // Format period label
   const periodLabel = useMemo(() => {
@@ -463,6 +473,37 @@ export default function TransactionsScreen() {
           fontWeight: "500",
           color: theme.text,
         },
+        emptyChartState: {
+          height: 200,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        emptyChartText: {
+          fontSize: 14,
+          color: theme.textSecondary,
+        },
+        chartActions: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        },
+        chartModeIconButton: {
+          width: 32,
+          height: 32,
+          borderRadius: 20,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 1,
+          borderColor: theme.divider,
+        },
+        chartModeIconExpense: {
+          backgroundColor: theme.expense,
+          borderColor: theme.expense,
+        },
+        chartModeIconIncome: {
+          backgroundColor: theme.income,
+          borderColor: theme.income,
+        },
       }),
     [theme, insets]
   );
@@ -487,9 +528,7 @@ export default function TransactionsScreen() {
       {/* Sticky Header */}
       <View style={stickyHeaderStyle}>
         <View style={styles.header}>
-          <AnimatedTitle pathMatch="transactions" style={styles.title}>
-            Transactions
-          </AnimatedTitle>
+          <Text style={styles.title}>Transactions</Text>
         </View>
       </View>
 
@@ -531,143 +570,185 @@ export default function TransactionsScreen() {
                 </Pressable>
               </View>
 
-              {/* View Selector - Right */}
-              <View style={styles.chartViewDropdown}>
+              {/* Actions - mode toggle + view selector */}
+              <View style={styles.chartActions}>
                 <Pressable
+                  style={[
+                    styles.chartModeIconButton,
+                    chartMode === "expense"
+                      ? styles.chartModeIconExpense
+                      : styles.chartModeIconIncome,
+                  ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setShowViewDropdown(!showViewDropdown);
+                    setChartMode(
+                      chartMode === "expense" ? "income" : "expense"
+                    );
                   }}
-                  style={styles.chartViewDropdownButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Show ${
+                    chartMode === "expense" ? "income" : "expenses"
+                  } in chart`}
                 >
-                  <Text style={styles.chartViewDropdownText}>
-                    {viewType === "week" ? "Week" : "Month"}
-                  </Text>
-                  <ChevronDown size={16} color={theme.textSecondary} />
+                  {chartMode === "expense" ? (
+                    <ArrowDownRight size={18} color={theme.background} />
+                  ) : (
+                    <ArrowUpRight size={18} color={theme.background} />
+                  )}
                 </Pressable>
-                {showViewDropdown && (
-                  <View style={styles.chartViewDropdownMenuWrapper}>
-                    <View style={styles.chartViewDropdownMenu}>
-                      <Pressable
-                        onPress={() => {
-                          Haptics.impactAsync(
-                            Haptics.ImpactFeedbackStyle.Light
-                          );
-                          setViewType("week");
-                          setPeriodOffset(0);
-                          setShowViewDropdown(false);
-                        }}
-                        style={[
-                          styles.chartViewDropdownMenuItem,
-                          viewType === "week" && {
-                            backgroundColor: theme.surfaceHighlight,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.chartViewDropdownMenuItemText}>
-                          Week
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => {
-                          Haptics.impactAsync(
-                            Haptics.ImpactFeedbackStyle.Light
-                          );
-                          setViewType("month");
-                          setPeriodOffset(0);
-                          setShowViewDropdown(false);
-                        }}
-                        style={[
-                          styles.chartViewDropdownMenuItem,
-                          styles.chartViewDropdownMenuItemLast,
-                          viewType === "month" && {
-                            backgroundColor: theme.surfaceHighlight,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.chartViewDropdownMenuItemText}>
-                          Month
-                        </Text>
-                      </Pressable>
+                <View style={styles.chartViewDropdown}>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowViewDropdown(!showViewDropdown);
+                    }}
+                    style={styles.chartViewDropdownButton}
+                  >
+                    <Text style={styles.chartViewDropdownText}>
+                      {viewType === "week" ? "Week" : "Month"}
+                    </Text>
+                    <ChevronDown size={16} color={theme.textSecondary} />
+                  </Pressable>
+                  {showViewDropdown && (
+                    <View style={styles.chartViewDropdownMenuWrapper}>
+                      <View style={styles.chartViewDropdownMenu}>
+                        <Pressable
+                          onPress={() => {
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Light
+                            );
+                            setViewType("week");
+                            setPeriodOffset(0);
+                            setShowViewDropdown(false);
+                          }}
+                          style={[
+                            styles.chartViewDropdownMenuItem,
+                            viewType === "week" && {
+                              backgroundColor: theme.surfaceHighlight,
+                            },
+                          ]}
+                        >
+                          <Text style={styles.chartViewDropdownMenuItemText}>
+                            Week
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => {
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Light
+                            );
+                            setViewType("month");
+                            setPeriodOffset(0);
+                            setShowViewDropdown(false);
+                          }}
+                          style={[
+                            styles.chartViewDropdownMenuItem,
+                            styles.chartViewDropdownMenuItemLast,
+                            viewType === "month" && {
+                              backgroundColor: theme.surfaceHighlight,
+                            },
+                          ]}
+                        >
+                          <Text style={styles.chartViewDropdownMenuItemText}>
+                            Month
+                          </Text>
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
+                </View>
               </View>
             </View>
             <View style={styles.chartWrapper}>
-              {(() => {
-                const screenWidth = Dimensions.get("window").width;
-                const chartWidth = screenWidth - 40; // Account for padding
-                const dataPoints = chartData.length;
+              {chartData.length === 0 ? (
+                <View style={styles.emptyChartState}>
+                  <Text style={styles.emptyChartText}>
+                    {chartMode === "expense"
+                      ? "No expenses in this period"
+                      : "No income in this period"}
+                  </Text>
+                </View>
+              ) : (
+                (() => {
+                  const screenWidth = Dimensions.get("window").width;
+                  const chartWidth = screenWidth - 40; // Account for padding
+                  const dataPoints = chartData.length;
 
-                // Calculate dynamic bar width and spacing to use full width
-                let barWidth: number;
-                let spacing: number;
+                  // Calculate dynamic bar width and spacing to use full width
+                  let barWidth: number;
+                  let spacing: number;
 
-                if (viewType === "week") {
-                  // For week (7 days), use fixed spacing
-                  spacing = 8;
-                  barWidth = Math.max(
-                    20,
-                    (chartWidth - (dataPoints - 1) * spacing - 60) / dataPoints
+                  if (viewType === "week") {
+                    // For week (7 days), use fixed spacing
+                    spacing = 8;
+                    barWidth = Math.max(
+                      20,
+                      (chartWidth - (dataPoints - 1) * spacing - 60) /
+                        Math.max(dataPoints, 1)
+                    );
+                  } else {
+                    // For month, calculate based on number of data points (should be ~4-5 for 7 days apart)
+                    spacing = 12;
+                    barWidth = Math.max(
+                      25,
+                      (chartWidth - (dataPoints - 1) * spacing - 60) /
+                        Math.max(dataPoints, 1)
+                    );
+                  }
+
+                  const chartMax =
+                    chartData.length > 0
+                      ? Math.max(...chartData.map((entry) => entry.value), 0) *
+                          1.1 || 100
+                      : 100;
+
+                  const chartColor =
+                    chartMode === "expense" ? theme.expense : theme.income;
+
+                  return (
+                    <BarChart
+                      key={`chart-${chartMode}-${viewType}-${
+                        chartData.length
+                      }-${JSON.stringify(chartData.map((d) => d.value))}`}
+                      data={chartData}
+                      width={chartWidth}
+                      height={200}
+                      barWidth={barWidth}
+                      spacing={spacing}
+                      frontColor={chartColor}
+                      gradientColor={chartColor}
+                      showGradient
+                      isAnimated
+                      animationDuration={800}
+                      noOfSections={4}
+                      maxValue={chartMax}
+                      yAxisThickness={0.5}
+                      xAxisThickness={0.5}
+                      yAxisTextStyle={{
+                        color: theme.textSecondary,
+                        fontSize: 11,
+                        fontWeight: "400",
+                      }}
+                      xAxisLabelTextStyle={{
+                        color: theme.textSecondary,
+                        fontSize: 10,
+                        fontWeight: "400",
+                      }}
+                      rulesColor={theme.divider}
+                      rulesType="solid"
+                      showYAxisIndices={false}
+                      showXAxisIndices={false}
+                      formatYLabel={(value) =>
+                        `$${Math.round(parseFloat(value))}`
+                      }
+                      showValuesAsTopLabel={false}
+                      barBorderTopLeftRadius={4}
+                      barBorderTopRightRadius={4}
+                      backgroundColor="transparent"
+                    />
                   );
-                } else {
-                  // For month, calculate based on number of data points (should be ~4-5 for 7 days apart)
-                  spacing = 12;
-                  barWidth = Math.max(
-                    25,
-                    (chartWidth - (dataPoints - 1) * spacing - 60) / dataPoints
-                  );
-                }
-
-                return (
-                  <BarChart
-                    key={`chart-${chartData.length}-${JSON.stringify(
-                      chartData.map((d) => d.value)
-                    )}`}
-                    data={chartData}
-                    width={chartWidth}
-                    height={200}
-                    barWidth={barWidth}
-                    spacing={spacing}
-                    frontColor={theme.expense}
-                    gradientColor={theme.expense}
-                    showGradient
-                    isAnimated
-                    animationDuration={800}
-                    noOfSections={4}
-                    maxValue={
-                      chartData.length > 0
-                        ? Math.max(...chartData.map((d) => d.value), 0) * 1.1 ||
-                          100
-                        : 100
-                    }
-                    yAxisThickness={0.5}
-                    xAxisThickness={0.5}
-                    yAxisTextStyle={{
-                      color: theme.textSecondary,
-                      fontSize: 11,
-                      fontWeight: "400",
-                    }}
-                    xAxisLabelTextStyle={{
-                      color: theme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: "400",
-                    }}
-                    rulesColor={theme.divider}
-                    rulesType="solid"
-                    showYAxisIndices={false}
-                    showXAxisIndices={false}
-                    formatYLabel={(value) =>
-                      `$${Math.round(parseFloat(value))}`
-                    }
-                    showValuesAsTopLabel={false}
-                    barBorderTopLeftRadius={4}
-                    barBorderTopRightRadius={4}
-                    backgroundColor="transparent"
-                  />
-                );
-              })()}
+                })()
+              )}
             </View>
           </View>
         )}

@@ -18,6 +18,7 @@ export interface Database {
           frequency: "weekly" | "monthly";
           created_at: string;
           updated_at: string;
+          type: Database["public"]["Enums"]["category_type"];
         };
         Insert: {
           id?: string;
@@ -27,6 +28,7 @@ export interface Database {
           frequency?: "weekly" | "monthly";
           created_at?: string;
           updated_at?: string;
+          type?: Database["public"]["Enums"]["category_type"];
         };
         Update: {
           id?: string;
@@ -36,6 +38,7 @@ export interface Database {
           frequency?: "weekly" | "monthly";
           created_at?: string;
           updated_at?: string;
+          type?: Database["public"]["Enums"]["category_type"];
         };
       };
       transactions: {
@@ -126,6 +129,9 @@ export interface Database {
           updated_at?: string;
         };
       };
+    };
+    Enums: {
+      category_type: "expense" | "income";
     };
   };
 }

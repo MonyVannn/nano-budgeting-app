@@ -1,4 +1,3 @@
-import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore } from "@/store";
@@ -6,8 +5,10 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -18,9 +19,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, startOver } = useAuthStore();
   const { theme, themeMode, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const [isStartingOver, setIsStartingOver] = useState(false);
 
   // Handle normal sign out
   const handleSignOut = async () => {
@@ -37,6 +39,56 @@ export default function SettingsScreen() {
   const handleThemeToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     toggleTheme();
+  };
+
+  const confirmSignOut = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      "Sign out?",
+      "You'll need to enter your email and password the next time you open the app.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: handleSignOut,
+        },
+      ]
+    );
+  };
+
+  const confirmStartOver = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      "Start Over?",
+      "This deletes all of your categories, budgets, transactions, and recurring items. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, delete everything",
+          style: "destructive",
+          onPress: handleStartOver,
+        },
+      ]
+    );
+  };
+
+  const handleStartOver = async () => {
+    try {
+      setIsStartingOver(true);
+      await startOver();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/(onboarding)/select-categories" as any);
+    } catch (error: any) {
+      console.error("Start over failed:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Start Over Failed",
+        error?.message || "Please try again in a moment."
+      );
+    } finally {
+      setIsStartingOver(false);
+    }
   };
 
   const styles = useMemo(
@@ -124,6 +176,13 @@ export default function SettingsScreen() {
         },
         dangerButton: {
           padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.divider,
+          flexDirection: "row",
+          alignItems: "center",
+        },
+        dangerButtonLast: {
+          borderBottomWidth: 0,
         },
         dangerButtonInner: {
           flexDirection: "row",
@@ -134,6 +193,10 @@ export default function SettingsScreen() {
           fontSize: 16,
           color: theme.error,
           fontWeight: "600",
+        },
+        dangerButtonSubtext: {
+          fontSize: 12,
+          color: theme.textSecondary,
         },
         emptyStateWrapper: {
           borderRadius: 16,
@@ -181,9 +244,7 @@ export default function SettingsScreen() {
       {/* Sticky Header */}
       <View style={stickyHeaderStyle}>
         <View style={styles.header}>
-          <AnimatedTitle pathMatch="settings" style={styles.title}>
-            Settings
-          </AnimatedTitle>
+          <Text style={styles.title}>Settings</Text>
         </View>
       </View>
 
@@ -251,19 +312,37 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Actions</Text>
               <View style={styles.dangerButtonWrapper}>
-                <View style={styles.dangerButton}>
-                  <Pressable
-                    style={styles.dangerButtonInner}
-                    onPress={handleSignOut}
-                  >
+                <Pressable
+                  style={styles.dangerButton}
+                  onPress={confirmStartOver}
+                  disabled={isStartingOver}
+                >
+                  <View style={[styles.dangerButtonInner, { flex: 1 }]}>
+                    <FontAwesome name="refresh" size={20} color={theme.error} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dangerButtonText}>Start Over</Text>
+                      <Text style={styles.dangerButtonSubtext}>
+                        Delete all data and restart onboarding
+                      </Text>
+                    </View>
+                  </View>
+                  {isStartingOver && (
+                    <ActivityIndicator color={theme.error} size="small" />
+                  )}
+                </Pressable>
+                <Pressable
+                  style={[styles.dangerButton, styles.dangerButtonLast]}
+                  onPress={confirmSignOut}
+                >
+                  <View style={styles.dangerButtonInner}>
                     <FontAwesome
                       name="sign-out"
                       size={20}
                       color={theme.error}
                     />
                     <Text style={styles.dangerButtonText}>Sign Out</Text>
-                  </Pressable>
-                </View>
+                  </View>
+                </Pressable>
               </View>
             </View>
           </>

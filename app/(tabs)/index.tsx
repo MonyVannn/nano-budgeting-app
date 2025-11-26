@@ -1,4 +1,3 @@
-import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { FABButton } from "@/components/FABButton";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
@@ -6,7 +5,7 @@ import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { ChevronDown } from "lucide-react-native";
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -106,9 +105,18 @@ export default function DashboardScreen() {
   }, []);
 
   // Calculate total budgeted amount
-  const totalBudgeted = useMemo(
-    () => categories.reduce((sum, cat) => sum + (cat.expected_amount || 0), 0),
+  const expenseCategories = useMemo(
+    () => categories.filter((cat) => cat.type === "expense"),
     [categories]
+  );
+
+  const totalBudgeted = useMemo(
+    () =>
+      expenseCategories.reduce(
+        (sum, cat) => sum + (cat.expected_amount || 0),
+        0
+      ),
+    [expenseCategories]
   );
 
   // Calculate total spent (from transactions this month) - this is the "Actual"
@@ -131,7 +139,7 @@ export default function DashboardScreen() {
 
   // Calculate category spending - sorted by most actual (spent) first
   const categoriesWithSpending = useMemo(() => {
-    const categoriesData = categories.map((category) => {
+    const categoriesData = expenseCategories.map((category) => {
       const categoryTransactions = transactions.filter(
         (txn) =>
           txn.category_id === category.id &&
@@ -160,7 +168,7 @@ export default function DashboardScreen() {
 
     // Sort by actual (spent) amount descending - most spent first
     return categoriesData.sort((a, b) => b.actual - a.actual);
-  }, [categories, transactions, currentMonth]);
+  }, [expenseCategories, transactions, currentMonth]);
 
   // Budget alerts - categories over budget
   const budgetAlerts = useMemo(() => {
@@ -652,9 +660,7 @@ export default function DashboardScreen() {
       {/* Sticky Header */}
       <View style={stickyHeaderStyle}>
         <View style={styles.header}>
-          <AnimatedTitle pathMatch="/(tabs)" style={styles.title}>
-            Dashboard
-          </AnimatedTitle>
+          <Text style={styles.title}>Dashboard</Text>
         </View>
       </View>
 

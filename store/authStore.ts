@@ -3,6 +3,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { useCategoryStore } from "./categoryStore";
+import { useRecurringStore } from "./recurringStore";
+import { useTransactionStore } from "./transactionStore";
 
 interface AuthState {
   session: Session | null;
@@ -16,6 +19,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  startOver: () => Promise<void>;
   setSession: (session: Session | null) => void;
 }
 
@@ -35,9 +39,6 @@ export const useAuthStore = create<AuthState>()(
           // Check if user explicitly signed out - if so, don't restore session
           const state = get();
           if (state.explicitlySignedOut) {
-            console.log(
-              "User explicitly signed out, skipping session restoration"
-            );
             // Clear Supabase storage to be sure
             await supabase.auth.signOut();
             set({
@@ -82,7 +83,6 @@ export const useAuthStore = create<AuthState>()(
 
                 if (refreshError || !refreshData.session) {
                   // Refresh failed, clear session
-                  console.log("Session refresh failed, clearing session");
                   set({
                     session: null,
                     user: null,
@@ -119,9 +119,6 @@ export const useAuthStore = create<AuthState>()(
             const currentState = get();
             // Don't restore session if user explicitly signed out
             if (currentState.explicitlySignedOut && !session) {
-              console.log(
-                "Auth state changed but user explicitly signed out, ignoring"
-              );
               return;
             }
 
@@ -262,8 +259,6 @@ export const useAuthStore = create<AuthState>()(
             console.error("Sign out error:", error);
             // Don't throw - we've cleared local state anyway
           }
-
-          console.log("Sign out completed - state cleared");
         } catch (error) {
           console.error("Sign out error:", error);
           // Even if signOut fails, clear local state
@@ -272,6 +267,49 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             explicitlySignedOut: true,
           });
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      startOver: async () => {
+        const state = get();
+        const userId = state.user?.id;
+
+        if (!userId) {
+          throw new Error("No authenticated user found");
+        }
+
+        try {
+          set({ isLoading: true });
+
+          const [transactionsResult, recurringResult, categoriesResult] =
+            await Promise.all([
+              supabase.from("transactions").delete().eq("user_id", userId),
+              supabase
+                .from("recurring_transactions")
+                .delete()
+                .eq("user_id", userId),
+              supabase.from("categories").delete().eq("user_id", userId),
+            ]);
+
+          const firstError =
+            transactionsResult.error ||
+            recurringResult.error ||
+            categoriesResult.error;
+
+          if (firstError) {
+            throw firstError;
+          }
+
+          useTransactionStore.getState().clearTransactions();
+          useRecurringStore.getState().clearRecurringTransactions();
+          useCategoryStore.getState().clearCategories();
+
+          set({ explicitlySignedOut: false });
+        } catch (error) {
+          console.error("Start over error:", error);
+          throw error;
         } finally {
           set({ isLoading: false });
         }
