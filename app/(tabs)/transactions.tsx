@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  UploadCloud,
 } from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -38,6 +39,7 @@ export default function TransactionsScreen() {
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current period, -1 = previous, 1 = next
   const [showViewDropdown, setShowViewDropdown] = useState(false);
   const [chartMode, setChartMode] = useState<"expense" | "income">("expense");
+  const [showImportTooltip, setShowImportTooltip] = useState(false);
 
   // Fetch transactions and categories on mount and when screen comes into focus
   useFocusEffect(
@@ -271,6 +273,38 @@ export default function TransactionsScreen() {
         },
         header: {
           gap: 8,
+        },
+        headerActions: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+        },
+        iconButton: {
+          padding: 8,
+          borderRadius: 999,
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+          backgroundColor: theme.surface,
+        },
+        tooltip: {
+          position: "absolute",
+          top: 40,
+          right: 0,
+          paddingVertical: 6,
+          paddingHorizontal: 12,
+          borderRadius: 8,
+          backgroundColor: theme.surfaceHighlight,
+          borderWidth: 0.5,
+          borderColor: theme.divider,
+          shadowColor: "#000",
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 2,
+        },
+        tooltipText: {
+          fontSize: 12,
+          color: theme.textSecondary,
         },
         title: {
           fontSize: 24,
@@ -526,7 +560,34 @@ export default function TransactionsScreen() {
       {/* Sticky Header */}
       <View style={stickyHeaderStyle}>
         <View style={styles.header}>
-          <Text style={styles.title}>Transactions</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text style={styles.title}>Transactions</Text>
+            <View style={styles.headerActions}>
+              <Pressable
+                style={styles.iconButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/import-csv");
+                }}
+                onLongPress={() => setShowImportTooltip(true)}
+                onPressOut={() => setShowImportTooltip(false)}
+                hitSlop={10}
+              >
+                <UploadCloud size={20} color={theme.text} />
+              </Pressable>
+            </View>
+          </View>
+          {showImportTooltip && (
+            <View style={styles.tooltip}>
+              <Text style={styles.tooltipText}>Import from CSV</Text>
+            </View>
+          )}
         </View>
       </View>
 
