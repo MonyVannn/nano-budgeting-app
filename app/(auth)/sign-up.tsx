@@ -111,9 +111,7 @@ export default function SignUpScreen() {
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
-      backgroundColor: isLightTheme
-        ? theme.surface
-        : "rgba(255, 255, 255, 0.04)",
+      backgroundColor: theme.surface,
       shadowColor: isLightTheme ? theme.shadow : "transparent",
       shadowOffset: { width: 0, height: 12 },
       shadowOpacity: isLightTheme ? 0.08 : 0,
@@ -237,9 +235,8 @@ export default function SignUpScreen() {
               placeholder="At least 6 characters"
               placeholderTextColor={theme.textSecondary}
               value={password}
-              onChangeText={setPassword}
               secureTextEntry
-              autoComplete="password"
+              onChangeText={setPassword}
               editable={!isLoading}
             />
           </View>
@@ -253,7 +250,8 @@ export default function SignUpScreen() {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
-              autoComplete="password"
+              autoComplete="off"
+              textContentType="none"
               editable={!isLoading}
             />
           </View>

@@ -27,17 +27,28 @@ const animatedCategories = new Set<string>();
 
 export default function DashboardScreen() {
   const [incomeExpanded, setIncomeExpanded] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { transactions, fetchTransactions, getTotalIncome, getTotalExpenses } =
-    useTransactionStore();
+  const {
+    transactions,
+    fetchTransactions,
+    getTotalIncome,
+    getTotalExpenses,
+    getNetAmount,
+  } = useTransactionStore();
   const { categories, fetchCategories, isLoading } = useCategoryStore();
 
   // Animated values for income expansion
   const heightAnimation = useSharedValue(0);
   const opacityAnimation = useSharedValue(0);
   const chevronRotation = useSharedValue(0);
+
+  // Animated values for summary expansion
+  const summaryHeightAnimation = useSharedValue(0);
+  const summaryOpacityAnimation = useSharedValue(0);
+  const summaryChevronRotation = useSharedValue(0);
 
   // Guard: Redirect to sign-in if not authenticated
   useEffect(() => {
@@ -85,6 +96,11 @@ export default function DashboardScreen() {
     };
   }, []);
 
+  const currentMonthLabel = useMemo(() => {
+    const date = new Date(currentMonth.end);
+    return date.toLocaleString("en-US", { month: "long", year: "numeric" });
+  }, [currentMonth.start]);
+
   // Calculate monthly totals
   const monthlyIncome = useMemo(
     () => getTotalIncome(currentMonth.start, currentMonth.end),
@@ -94,7 +110,20 @@ export default function DashboardScreen() {
     () => getTotalExpenses(currentMonth.start, currentMonth.end),
     [getTotalExpenses, currentMonth.start, currentMonth.end, transactions]
   );
-  const remaining = monthlyIncome - monthlyExpenses;
+  const amountSaved = monthlyIncome - monthlyExpenses;
+
+  const previousMonthEndDate = useMemo(() => {
+    const startOfMonth = new Date(currentMonth.start);
+    startOfMonth.setDate(startOfMonth.getDate() - 1);
+    return startOfMonth.toISOString().split("T")[0];
+  }, [currentMonth.start]);
+
+  const startingBalance = useMemo(() => {
+    if (!transactions.length) return 0;
+    return getNetAmount(undefined, previousMonthEndDate);
+  }, [getNetAmount, previousMonthEndDate, transactions]);
+
+  const endingBalance = startingBalance + amountSaved;
 
   // Calculate days left in month
   const daysLeftInMonth = useMemo(() => {
@@ -196,6 +225,29 @@ export default function DashboardScreen() {
     }
   }, [incomeExpanded]);
 
+  useEffect(() => {
+    const config = {
+      duration: 400,
+      easing: Easing.bezier(0.4, 0.0, 0.2, 1),
+    };
+
+    if (summaryExpanded) {
+      summaryHeightAnimation.value = withTiming(1, config);
+      summaryOpacityAnimation.value = withTiming(1, {
+        ...config,
+        duration: 300,
+      });
+      summaryChevronRotation.value = withTiming(180, config);
+    } else {
+      summaryHeightAnimation.value = withTiming(0, config);
+      summaryOpacityAnimation.value = withTiming(0, {
+        ...config,
+        duration: 200,
+      });
+      summaryChevronRotation.value = withTiming(0, config);
+    }
+  }, [summaryExpanded]);
+
   // Animated styles
   const animatedDetailsStyle = useAnimatedStyle(() => ({
     height: heightAnimation.value * 130, // Approximate height of details section
@@ -205,6 +257,16 @@ export default function DashboardScreen() {
 
   const animatedChevronStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${chevronRotation.value}deg` }],
+  }));
+
+  const summaryDetailsStyle = useAnimatedStyle(() => ({
+    height: summaryHeightAnimation.value * 150,
+    opacity: summaryOpacityAnimation.value,
+    overflow: "hidden",
+  }));
+
+  const summaryChevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${summaryChevronRotation.value}deg` }],
   }));
 
   const handleCategoryPress = (categoryId: string) => {
@@ -268,7 +330,7 @@ export default function DashboardScreen() {
           gap: 8,
         },
         incomeLabel: {
-          fontSize: 20,
+          fontSize: 16,
           fontWeight: "600",
           color: theme.text,
         },
@@ -329,6 +391,7 @@ export default function DashboardScreen() {
           justifyContent: "space-between",
         },
         summaryBudgetColumn: {
+          marginTop: 10,
           flexDirection: "row",
           justifyContent: "space-between",
           flex: 1,
@@ -682,11 +745,21 @@ export default function DashboardScreen() {
             >
               <View style={styles.incomeHeader}>
                 <View style={styles.incomeLabelContainer}>
-                  <Text style={styles.incomeLabel}>Income</Text>
+                  <Text style={styles.incomeLabel}>Ending Balance</Text>
                 </View>
                 <View style={styles.incomeLabelContainer}>
-                  <Text style={styles.incomeAmount} numberOfLines={1}>
-                    ${monthlyIncome.toFixed(2)}
+                  <Text
+                    style={[
+                      styles.incomeAmount,
+                      {
+                        color:
+                          endingBalance >= 0 ? theme.income : theme.expense,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {endingBalance >= 0 ? "+" : "-"}$
+                    {Math.abs(endingBalance).toFixed(2)}
                   </Text>
                   <Animated.View style={animatedChevronStyle}>
                     <ChevronDown size={20} color={theme.textSecondary} />
@@ -698,41 +771,28 @@ export default function DashboardScreen() {
                 <View style={styles.incomeDetails}>
                   <View style={styles.detailRow}>
                     <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Income</Text>
+                      <Text style={styles.detailLabel}>Starting Balance</Text>
                       <View
                         style={[
                           styles.indicator,
-                          { backgroundColor: theme.indicatorGreen },
+                          { backgroundColor: theme.divider },
                         ]}
                       />
                     </View>
                     <Text style={styles.detailAmount}>
-                      ${monthlyIncome.toFixed(2)}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Expenses</Text>
-                      <View
-                        style={[
-                          styles.indicator,
-                          { backgroundColor: theme.indicatorRed },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.detailAmount} numberOfLines={1}>
-                      -${monthlyExpenses.toFixed(2)}
+                      {startingBalance >= 0 ? "+" : "-"}$
+                      {Math.abs(startingBalance).toFixed(2)}
                     </Text>
                   </View>
                   <View style={[styles.detailRow, styles.detailRowLast]}>
                     <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Remaining</Text>
+                      <Text style={styles.detailLabel}>Amount Saved</Text>
                       <View
                         style={[
                           styles.indicator,
                           {
                             backgroundColor:
-                              remaining >= 0
+                              amountSaved >= 0
                                 ? theme.indicatorGreen
                                 : theme.indicatorRed,
                           },
@@ -743,12 +803,14 @@ export default function DashboardScreen() {
                       style={[
                         styles.detailAmount,
                         {
-                          color: remaining >= 0 ? theme.income : theme.expense,
+                          color:
+                            amountSaved >= 0 ? theme.income : theme.expense,
                         },
                       ]}
                       numberOfLines={1}
                     >
-                      ${remaining.toFixed(2)}
+                      {amountSaved >= 0 ? "+" : "-"}$
+                      {Math.abs(amountSaved).toFixed(2)}
                     </Text>
                   </View>
                 </View>
@@ -757,36 +819,60 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Monthly Summary - Two Row Layout */}
+        {/* Monthly Summary - Collapsible */}
         <View style={styles.summaryCardWrapper}>
           <View style={styles.summaryCard}>
-            <View style={styles.summaryBudgetColumn}>
-              <View style={styles.summaryColumnRight}>
-                <Text style={styles.columnLabel}>Budgeted</Text>
-                <Text style={styles.columnValue} numberOfLines={1}>
-                  ${totalBudgeted.toFixed(2)}
-                </Text>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSummaryExpanded(!summaryExpanded);
+              }}
+              activeOpacity={1}
+            >
+              <View style={styles.incomeHeader}>
+                <View style={styles.incomeLabelContainer}>
+                  <Text style={styles.incomeLabel}>Monthly Summary</Text>
+                </View>
+                <Animated.View style={summaryChevronStyle}>
+                  <ChevronDown size={20} color={theme.textSecondary} />
+                </Animated.View>
               </View>
-              <View style={styles.summaryColumnRight}>
-                <Text style={styles.columnLabel}>Actual</Text>
-                <View style={styles.actualRow}>
+
+              <View style={styles.summaryBudgetColumn}>
+                <View style={styles.summaryColumnRight}>
+                  <Text style={styles.columnLabel}>Expected</Text>
+                  <Text style={styles.columnValue} numberOfLines={1}>
+                    ${totalBudgeted.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.summaryColumnRight}>
+                  <Text style={styles.columnLabel}>Actual</Text>
                   <Text style={styles.columnValue} numberOfLines={1}>
                     ${totalActual.toFixed(2)}
                   </Text>
-                  <View
-                    style={[
-                      styles.differenceBadge,
-                      {
-                        backgroundColor:
-                          totalDifference >= 0
-                            ? theme.income + "20"
-                            : theme.expense + "20",
-                      },
-                    ]}
-                  >
+                </View>
+              </View>
+
+              <Animated.View style={summaryDetailsStyle}>
+                <View style={styles.incomeDetails}>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailLeft}>
+                      <Text style={styles.detailLabel}>Difference</Text>
+                      <View
+                        style={[
+                          styles.indicator,
+                          {
+                            backgroundColor:
+                              totalDifference >= 0
+                                ? theme.indicatorGreen
+                                : theme.indicatorRed,
+                          },
+                        ]}
+                      />
+                    </View>
                     <Text
                       style={[
-                        styles.differenceText,
+                        styles.detailAmount,
                         {
                           color:
                             totalDifference >= 0 ? theme.income : theme.expense,
@@ -798,9 +884,29 @@ export default function DashboardScreen() {
                       {Math.abs(totalDifference).toFixed(2)}
                     </Text>
                   </View>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailLeft}>
+                      <Text style={styles.detailLabel}>Month</Text>
+                    </View>
+                    <Text style={styles.detailAmount} numberOfLines={1}>
+                      {currentMonthLabel}
+                    </Text>
+                  </View>
+                  <View style={[styles.detailRow, styles.detailRowLast]}>
+                    <View style={styles.detailLeft}>
+                      <Text style={styles.detailLabel}>Days Left</Text>
+                    </View>
+                    <Text style={styles.detailAmount} numberOfLines={1}>
+                      {daysLeftInMonth > 0
+                        ? `${daysLeftInMonth} day${
+                            daysLeftInMonth === 1 ? "" : "s"
+                          }`
+                        : "Last day"}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </View>
+              </Animated.View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -909,7 +1015,7 @@ export default function DashboardScreen() {
                 </View>
                 <View style={styles.categoryHeaderRight}>
                   <Text style={styles.categoryHeaderLabel} numberOfLines={1}>
-                    Budgeted
+                    Expected
                   </Text>
                   <Text style={styles.categoryHeaderLabel} numberOfLines={1}>
                     Actual

@@ -255,7 +255,7 @@ export default function TransactionDetailScreen() {
       backgroundColor: theme.expense,
     },
     deleteButtonText: {
-      color: theme.text,
+      color: "white",
     },
   });
 

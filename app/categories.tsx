@@ -374,7 +374,9 @@ export default function CategoriesScreen() {
 
   // Group categories by frequency - use a stable reference to prevent unnecessary re-renders
   const { weeklyCategories, monthlyCategories } = useMemo(() => {
-    const weekly = expenseCategories.filter((cat) => cat.frequency === "weekly");
+    const weekly = expenseCategories.filter(
+      (cat) => cat.frequency === "weekly"
+    );
     const monthly = expenseCategories.filter(
       (cat) => cat.frequency === "monthly"
     );
@@ -397,6 +399,15 @@ export default function CategoriesScreen() {
         0
       ),
     [monthlyCategories]
+  );
+
+  const incomeTotal = useMemo(
+    () =>
+      incomeCategories.reduce(
+        (sum, cat) => sum + (cat.expected_amount || 0),
+        0
+      ),
+    [incomeCategories]
   );
 
   const handleAmountChange = useCallback(
@@ -520,7 +531,10 @@ export default function CategoriesScreen() {
     async (categoryId: string, type: CategoryType) => {
       const category = categories.find((c) => c.id === categoryId);
       if (!category || category.type === type) {
-        setShowCategoryTypeDropdown((prev) => ({ ...prev, [categoryId]: false }));
+        setShowCategoryTypeDropdown((prev) => ({
+          ...prev,
+          [categoryId]: false,
+        }));
         return;
       }
 
@@ -534,7 +548,10 @@ export default function CategoriesScreen() {
           setEditingAmounts((prev) => ({ ...prev, [categoryId]: "0" }));
         }
         await updateCategory(categoryId, payload);
-        setShowCategoryTypeDropdown((prev) => ({ ...prev, [categoryId]: false }));
+        setShowCategoryTypeDropdown((prev) => ({
+          ...prev,
+          [categoryId]: false,
+        }));
         setExpandedCategories((prev) => {
           const newSet = new Set(prev);
           newSet.delete(categoryId);
@@ -593,7 +610,7 @@ export default function CategoriesScreen() {
   const handleAmountBlur = useCallback(
     async (categoryId: string) => {
       const category = categories.find((c) => c.id === categoryId);
-      if (!category || category.type === "income") {
+      if (!category) {
         return;
       }
       const value = editingAmounts[categoryId] || "0";
@@ -635,7 +652,7 @@ export default function CategoriesScreen() {
   const handleDone = () => {
     Keyboard.dismiss();
     // Save any pending changes
-    expenseCategories.forEach((category) => {
+    categories.forEach((category) => {
       handleAmountBlur(category.id);
     });
     setHasChanges(false);
@@ -1115,46 +1132,79 @@ export default function CategoriesScreen() {
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Income Categories</Text>
                 <Text style={styles.sectionTotal}>
-                  {incomeCategories.length}{" "}
-                  {incomeCategories.length === 1 ? "source" : "sources"}
+                  Total expected US${incomeTotal.toFixed(2)}
                 </Text>
               </View>
               <View style={styles.categoryListWrapper}>
-                {incomeCategories.length === 0 ? (
+                {incomeCategories.length > 0 ? (
+                  incomeCategories.map((category, index) => (
+                    <CategoryItem
+                      key={category.id}
+                      category={category}
+                      isLast={index === incomeCategories.length - 1}
+                      editingName={editingNames[category.id] ?? category.name}
+                      editingAmount={
+                        editingAmounts[category.id] ??
+                        category.expected_amount.toString()
+                      }
+                      isExpanded={expandedCategories.has(category.id)}
+                      showTypeDropdown={
+                        showCategoryTypeDropdown[category.id] || false
+                      }
+                      showFreqDropdown={
+                        showFrequencyDropdown[category.id] || false
+                      }
+                      styles={styles}
+                      theme={theme}
+                      currentType={category.type}
+                      onNameChange={(value: string) =>
+                        handleNameChange(category.id, value)
+                      }
+                      onNameBlur={() => handleNameBlur(category.id)}
+                      onAmountChange={(value: string) =>
+                        handleAmountChange(category.id, value)
+                      }
+                      onAmountBlur={() => handleAmountBlur(category.id)}
+                      onToggleExpanded={() =>
+                        toggleCategoryExpanded(category.id)
+                      }
+                      onFrequencyChange={(frequency: "weekly" | "monthly") =>
+                        handleFrequencyChange(category.id, frequency)
+                      }
+                      onTypeChange={(type: CategoryType) =>
+                        handleTypeChange(category.id, type)
+                      }
+                      onDelete={() => handleDelete(category.id, category.name)}
+                      onSetShowCategoryTypeDropdown={(show: boolean) =>
+                        setShowCategoryTypeDropdown((prev) => ({
+                          ...prev,
+                          [category.id]: show,
+                        }))
+                      }
+                      onSetShowFrequencyDropdown={(show: boolean) =>
+                        setShowFrequencyDropdown((prev) => ({
+                          ...prev,
+                          [category.id]: show,
+                        }))
+                      }
+                    />
+                  ))
+                ) : (
                   <View style={styles.incomeItem}>
                     <Text style={styles.incomeSubtext}>
                       Add income categories to organize your paychecks or other
                       revenue streams.
                     </Text>
                   </View>
-                ) : (
-                  incomeCategories.map((category, index) => (
-                    <View
-                      key={category.id}
-                      style={[
-                        styles.incomeItem,
-                        index === incomeCategories.length - 1 &&
-                          styles.categoryItemLast,
-                      ]}
-                    >
-                      <View style={styles.incomeTextWrapper}>
-                        <Text style={styles.incomeName}>{category.name}</Text>
-                        <Text style={styles.incomeSubtext}>
-                          Tracked when you log income transactions
-                        </Text>
-                      </View>
-                      <View style={styles.incomeBadge}>
-                        <Text style={styles.incomeBadgeText}>Income</Text>
-                      </View>
-                    </View>
-                  ))
                 )}
                 <Pressable
                   style={styles.addCategoryButton}
                   onPress={() => handleAddCategory("monthly", "income")}
                 >
                   <Plus size={18} color={theme.textSecondary} />
-                  <Text style={styles.addCategoryText}>Add income category</Text>
+                  <Text style={styles.addCategoryText}>
+                    Add income category
+                  </Text>
                 </Pressable>
               </View>
             </View>

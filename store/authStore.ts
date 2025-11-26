@@ -192,11 +192,21 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) throw error;
 
-          set({
-            session: data.session,
-            user: data.user,
-            explicitlySignedOut: false, // Reset flag on successful sign up
-          });
+          if (data.session && data.user) {
+            // Email confirmation disabled – user can continue immediately
+            set({
+              session: data.session,
+              user: data.user,
+              explicitlySignedOut: false,
+            });
+          } else {
+            // Confirmation required – keep user signed out until they verify
+            set({
+              session: null,
+              user: null,
+              explicitlySignedOut: false,
+            });
+          }
         } catch (error) {
           console.error("Sign up error:", error);
           throw error;

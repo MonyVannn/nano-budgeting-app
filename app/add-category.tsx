@@ -31,8 +31,9 @@ export default function AddCategoryScreen() {
   const frequency = (params.frequency as "weekly" | "monthly") || "monthly";
   const initialType =
     (params.type as "expense" | "income" | undefined) || "expense";
-  const [categoryType, setCategoryType] =
-    useState<"expense" | "income">(initialType);
+  const [categoryType, setCategoryType] = useState<"expense" | "income">(
+    initialType
+  );
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -41,11 +42,10 @@ export default function AddCategoryScreen() {
       return;
     }
 
-    const amount =
-      categoryType === "expense" ? parseFloat(expectedAmount) || 0 : 0;
-    if (categoryType === "expense" && amount < 0) {
+    const amount = parseFloat(expectedAmount) || 0;
+    if (amount < 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", "Budget amount cannot be negative");
+      Alert.alert("Error", "Amount cannot be negative");
       return;
     }
 
@@ -277,7 +277,6 @@ export default function AddCategoryScreen() {
                 if (categoryType !== "income") {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setCategoryType("income");
-                  setExpectedAmount("");
                 }
               }}
             >
@@ -296,9 +295,7 @@ export default function AddCategoryScreen() {
         {/* Expected Amount */}
         <View style={styles.section}>
           <Text style={styles.label}>
-            {categoryType === "expense"
-              ? "Monthly Budget"
-              : "Income categories don't need budgets"}
+            {categoryType === "expense" ? "Monthly Budget" : "Expected Income"}
           </Text>
           <View style={styles.inputWrapper}>
             <TextInput
@@ -310,7 +307,7 @@ export default function AddCategoryScreen() {
               keyboardType="decimal-pad"
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
-              editable={categoryType === "expense"}
+              editable
             />
           </View>
         </View>

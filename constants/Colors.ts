@@ -110,7 +110,7 @@ export const LightTheme = {
   error: RobinhoodPalette.redOrange,
 
   tabIconDefault: RobinhoodPalette.mutedText,
-  tabIconSelected: RobinhoodPalette.robinNeon,
+  tabIconSelected: RobinhoodPalette.brightGreen,
   tabBar: RobinhoodPalette.lightSurface,
 
   border: "#d1d5db", // Darker border for better visibility on light background

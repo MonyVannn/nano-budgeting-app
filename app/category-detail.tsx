@@ -42,15 +42,15 @@ export default function CategoryDetailScreen() {
     };
   }, []);
 
-  // Calculate category spending for current month
+  // Calculate category performance for current month
   const categoryData = useMemo(() => {
     if (!category) return null;
 
-    const isExpenseCategory = category.type !== "income";
+    const isIncomeCategory = category.type === "income";
     const categoryTransactions = transactions.filter(
       (txn) =>
         txn.category_id === category.id &&
-        (isExpenseCategory ? txn.is_expense : !txn.is_expense) &&
+        (isIncomeCategory ? !txn.is_expense : txn.is_expense) &&
         txn.date >= currentMonth.start &&
         txn.date <= currentMonth.end
     );
@@ -58,15 +58,13 @@ export default function CategoryDetailScreen() {
       (sum, txn) => sum + txn.amount,
       0
     );
-    const budgeted = isExpenseCategory ? category.expected_amount || 0 : 0;
-    const difference = isExpenseCategory ? budgeted - actual : actual;
+    const expected = category.expected_amount || 0;
+    const difference = isIncomeCategory ? actual - expected : expected - actual;
     const percentage =
-      isExpenseCategory && budgeted > 0
-        ? Math.min((actual / budgeted) * 100, 100)
-        : 0;
+      expected > 0 ? Math.min((actual / expected) * 100, 100) : 0;
 
     return {
-      budgeted,
+      expected,
       actual,
       difference,
       percentage,
@@ -88,28 +86,23 @@ export default function CategoryDetailScreen() {
 
   useEffect(() => {
     if (categoryData) {
-      if (categoryData.type === "expense") {
-        const targetPercentage = Math.min(categoryData.percentage, 100);
-        if (!hasAnimatedRef.current) {
-          progressWidth.value = withTiming(targetPercentage, {
-            duration: 800,
-            easing: Easing.out(Easing.ease),
-          });
-          prevPercentageRef.current = targetPercentage;
-          hasAnimatedRef.current = true;
-        } else if (prevPercentageRef.current !== targetPercentage) {
-          progressWidth.value = withTiming(targetPercentage, {
-            duration: 800,
-            easing: Easing.out(Easing.ease),
-          });
-          prevPercentageRef.current = targetPercentage;
-        }
-      } else {
-        progressWidth.value = 0;
-        prevPercentageRef.current = 0;
+      const targetPercentage = Math.min(categoryData.percentage, 100);
+      if (!hasAnimatedRef.current) {
+        progressWidth.value = withTiming(targetPercentage, {
+          duration: 800,
+          easing: Easing.out(Easing.ease),
+        });
+        prevPercentageRef.current = targetPercentage;
+        hasAnimatedRef.current = true;
+      } else if (prevPercentageRef.current !== targetPercentage) {
+        progressWidth.value = withTiming(targetPercentage, {
+          duration: 800,
+          easing: Easing.out(Easing.ease),
+        });
+        prevPercentageRef.current = targetPercentage;
       }
     }
-  }, [categoryData?.percentage, categoryData?.type]);
+  }, [categoryData?.percentage]);
 
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%`,
@@ -148,12 +141,8 @@ export default function CategoryDetailScreen() {
   }
 
   const isIncomeCategory = categoryData.type === "income";
-  const isOverBudget = !isIncomeCategory && categoryData.difference < 0;
-  const progressColor = isIncomeCategory
-    ? theme.income
-    : isOverBudget
-    ? theme.expense
-    : theme.income;
+  const isNegativeOutcome = categoryData.difference < 0;
+  const progressColor = isNegativeOutcome ? theme.expense : theme.income;
 
   const styles = useMemo(
     () =>
@@ -331,13 +320,19 @@ export default function CategoryDetailScreen() {
         {/* Summary Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
-            {isIncomeCategory ? "Income Summary" : "Budget Summary"}
+            {isIncomeCategory ? "Income Summary" : "Expense Summary"}
           </Text>
 
           {isIncomeCategory ? (
             <>
               <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>Income received</Text>
+                <Text style={styles.amountLabel}>Expected</Text>
+                <Text style={styles.amountValue}>
+                  ${categoryData.expected.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.amountRow}>
+                <Text style={styles.amountLabel}>Received</Text>
                 <Text
                   style={[
                     styles.amountValue,
@@ -347,23 +342,57 @@ export default function CategoryDetailScreen() {
                   +${categoryData.actual.toFixed(2)}
                 </Text>
               </View>
+              <View style={styles.differenceRow}>
+                <Text style={styles.differenceLabel}>Difference</Text>
+                <Text
+                  style={[
+                    styles.differenceValue,
+                    {
+                      color: isNegativeOutcome ? theme.expense : theme.income,
+                    },
+                  ]}
+                >
+                  {categoryData.difference >= 0 ? "+" : "-"}$
+                  {Math.abs(categoryData.difference).toFixed(2)}
+                </Text>
+              </View>
+              {categoryData.expected > 0 ? (
+                <>
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressBarContainer}>
+                      <Animated.View
+                        style={[
+                          styles.progressBarFill,
+                          animatedProgressStyle,
+                          {
+                            backgroundColor: progressColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.progressText}>
+                      {categoryData.percentage.toFixed(1)}% of expected received
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.progressText}>
+                  Set an expected amount to track your income progress.
+                </Text>
+              )}
               <View style={styles.amountRow}>
                 <Text style={styles.amountLabel}>Transactions</Text>
                 <Text style={styles.amountValue}>
                   {categoryData.transactions.length}
                 </Text>
               </View>
-              <Text style={styles.progressText}>
-                Income categories don’t have budgets. Any transaction assigned
-                here is treated as income.
-              </Text>
             </>
           ) : (
             <>
               <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>Budgeted</Text>
+                <Text style={styles.amountLabel}>Expected</Text>
                 <Text style={styles.amountValue}>
-                  ${categoryData.budgeted.toFixed(2)}
+                  ${categoryData.expected.toFixed(2)}
                 </Text>
               </View>
 
@@ -387,7 +416,7 @@ export default function CategoryDetailScreen() {
                   />
                 </View>
                 <Text style={styles.progressText}>
-                  {categoryData.percentage.toFixed(1)}% of budget used
+                  {categoryData.percentage.toFixed(1)}% of expected used
                 </Text>
               </View>
 
@@ -397,7 +426,7 @@ export default function CategoryDetailScreen() {
                   style={[
                     styles.differenceValue,
                     {
-                      color: isOverBudget ? theme.expense : theme.income,
+                      color: isNegativeOutcome ? theme.expense : theme.income,
                     },
                   ]}
                 >
@@ -454,8 +483,7 @@ export default function CategoryDetailScreen() {
                     },
                   ]}
                 >
-                  {isIncomeCategory ? "+" : "-"}$
-                  {transaction.amount.toFixed(2)}
+                  {isIncomeCategory ? "+" : "-"}${transaction.amount.toFixed(2)}
                 </Text>
               </Pressable>
             ))

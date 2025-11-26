@@ -87,9 +87,7 @@ export default function SignInScreen() {
       overflow: "hidden",
       borderWidth: 0.5,
       borderColor: theme.divider,
-      backgroundColor: isLightTheme
-        ? theme.surface
-        : "rgba(255, 255, 255, 0.04)",
+      backgroundColor: theme.surface,
       shadowColor: isLightTheme ? theme.shadow : "transparent",
       shadowOffset: { width: 0, height: 12 },
       shadowOpacity: isLightTheme ? 0.08 : 0,

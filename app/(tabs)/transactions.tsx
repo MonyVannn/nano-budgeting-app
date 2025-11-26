@@ -278,7 +278,6 @@ export default function TransactionsScreen() {
           color: theme.text,
         },
         content: {
-          marginTop: 16,
           flex: 1,
           paddingHorizontal: 6,
           backgroundColor: theme.background,
@@ -366,7 +365,6 @@ export default function TransactionsScreen() {
         },
         chartContainer: {
           marginBottom: 24,
-          marginTop: 8,
           borderRadius: 0,
           overflow: "hidden",
           backgroundColor: "transparent",

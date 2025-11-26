@@ -5,11 +5,11 @@ import {
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { router, Stack, usePathname, useSegments } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo, useState } from "react";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/components/useColorScheme";
 import { ThemeProvider, useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore } from "@/store";
 
@@ -62,8 +62,7 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
   const pathname = usePathname();
   const segments = useSegments();
   const rootSegment = segments?.[0];
@@ -257,6 +256,7 @@ function RootLayoutNav() {
 
   return (
     <NavigationThemeProvider value={customTheme}>
+      <StatusBar style={themeMode === "light" ? "dark" : "light"} />
       <Stack
         screenOptions={{
           headerStyle: {

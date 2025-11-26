@@ -35,6 +35,9 @@ export default function AllocateBudgetScreen() {
   const { addCategory, fetchCategories } = useCategoryStore();
   const params = useLocalSearchParams();
   const [isSaving, setIsSaving] = useState(false);
+  const [focusedBudgetIndex, setFocusedBudgetIndex] = useState<number | null>(
+    null
+  );
 
   // Parse selected categories from params
   const selectedCategoryNames = useMemo(() => {
@@ -261,19 +264,30 @@ export default function AllocateBudgetScreen() {
         budgetInputWrapper: {
           flexDirection: "row",
           alignItems: "center",
-          minWidth: 100,
+          minWidth: 120,
+          borderWidth: 1,
+          borderColor: theme.divider,
+          borderRadius: 12,
+          paddingHorizontal: 12,
+          paddingVertical: Platform.OS === "ios" ? 12 : 8,
+          backgroundColor: theme.backgroundDark,
+        },
+        budgetInputWrapperFocused: {
+          borderColor: theme.primary,
+          backgroundColor: theme.surfaceHighlight,
         },
         budgetPrefix: {
           fontSize: 16,
           color: theme.textSecondary,
-          marginRight: 4,
+          marginRight: 6,
         },
         budgetInput: {
           fontSize: 16,
           fontWeight: "600",
           color: theme.text,
-          minWidth: 80,
+          flex: 1,
           textAlign: "right",
+          paddingVertical: 0,
         },
         addCategoryButton: {
           flexDirection: "row",
@@ -378,7 +392,13 @@ export default function AllocateBudgetScreen() {
                     <Icon size={20} color={theme.primary} />
                   </View>
                   <Text style={styles.categoryName}>{category.name}</Text>
-                  <View style={styles.budgetInputWrapper}>
+                  <View
+                    style={[
+                      styles.budgetInputWrapper,
+                      focusedBudgetIndex === globalIndex &&
+                        styles.budgetInputWrapperFocused,
+                    ]}
+                  >
                     <Text style={styles.budgetPrefix}>$</Text>
                     <TextInput
                       style={styles.budgetInput}
@@ -391,6 +411,8 @@ export default function AllocateBudgetScreen() {
                       keyboardType="decimal-pad"
                       returnKeyType="done"
                       onSubmitEditing={() => Keyboard.dismiss()}
+                      onFocus={() => setFocusedBudgetIndex(globalIndex)}
+                      onBlur={() => setFocusedBudgetIndex(null)}
                     />
                   </View>
                   <ChevronRight size={20} color={theme.textSecondary} />
@@ -419,7 +441,13 @@ export default function AllocateBudgetScreen() {
                   <Icon size={20} color={theme.primary} />
                 </View>
                 <Text style={styles.categoryName}>{category.name}</Text>
-                <View style={styles.budgetInputWrapper}>
+                <View
+                  style={[
+                    styles.budgetInputWrapper,
+                    focusedBudgetIndex === globalIndex &&
+                      styles.budgetInputWrapperFocused,
+                  ]}
+                >
                   <Text style={styles.budgetPrefix}>$</Text>
                   <TextInput
                     style={styles.budgetInput}
@@ -432,6 +460,8 @@ export default function AllocateBudgetScreen() {
                     keyboardType="decimal-pad"
                     returnKeyType="done"
                     onSubmitEditing={() => Keyboard.dismiss()}
+                    onFocus={() => setFocusedBudgetIndex(globalIndex)}
+                    onBlur={() => setFocusedBudgetIndex(null)}
                   />
                 </View>
                 <ChevronRight size={20} color={theme.textSecondary} />
