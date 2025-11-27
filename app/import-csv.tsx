@@ -10,8 +10,13 @@ import { transformCSVRows, validateMappings } from "@/lib/csvTransform";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
-import { Check, FileSpreadsheet, UploadCloud } from "lucide-react-native";
+import { router, Stack } from "expo-router";
+import {
+  ArrowLeft,
+  Check,
+  FileSpreadsheet,
+  UploadCloud,
+} from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -95,21 +100,25 @@ export default function ImportCSVScreen() {
           alignItems: "center",
           justifyContent: "space-between",
           paddingTop: Platform.OS === "ios" ? insets.top + 10 : 20,
+          paddingBottom: 16,
           paddingHorizontal: 20,
-          paddingBottom: 20,
-        },
-        headerLeft: {
-          flexDirection: "row",
-          alignItems: "center",
           gap: 12,
         },
         backButton: {
           padding: 8,
+          borderRadius: 999,
+          backgroundColor: theme.surface,
         },
         headerTitle: {
-          fontSize: 18,
-          fontWeight: "600",
+          fontSize: 24,
+          fontWeight: "700",
           color: theme.text,
+          flex: 1,
+        },
+        headerSubtitle: {
+          fontSize: 13,
+          color: theme.textSecondary,
+          marginTop: 4,
         },
         content: {
           flex: 1,
@@ -437,6 +446,19 @@ export default function ImportCSVScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.header}>
+        <Pressable
+          style={{ padding: 4 }}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
+        >
+          <ArrowLeft size={24} color={theme.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Import CSV</Text>
+      </View>
       <ScrollView
         style={styles.content}
         contentContainerStyle={{ paddingBottom: 120 }}
