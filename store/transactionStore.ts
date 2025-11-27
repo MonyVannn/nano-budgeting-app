@@ -15,10 +15,11 @@ interface TransactionState {
     userId: string,
     startDate?: string,
     endDate?: string
-  ) => Promise<void>;
+  ) => Promise<Transaction[]>;
   addTransaction: (transaction: TransactionInsert) => Promise<void>;
   updateTransaction: (id: string, updates: TransactionUpdate) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  deleteTransactions: (ids: string[]) => Promise<void>;
   importFromCSV: (transactions: TransactionInsert[]) => Promise<void>;
 
   // Helpers
@@ -59,7 +60,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
       if (error) throw error;
 
-      set({ transactions: data || [] });
+      const records = data || [];
+      set({ transactions: records });
+      return records;
     } catch (error) {
       console.error("Error fetching transactions:", error);
       throw error;
@@ -140,6 +143,28 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       }));
     } catch (error) {
       console.error("Error deleting transaction:", error);
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteTransactions: async (ids: string[]) => {
+    if (ids.length === 0) return;
+    try {
+      set({ isLoading: true });
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .in("id", ids);
+
+      if (error) throw error;
+
+      set((state) => ({
+        transactions: state.transactions.filter((txn) => !ids.includes(txn.id)),
+      }));
+    } catch (error) {
+      console.error("Error deleting transactions:", error);
       throw error;
     } finally {
       set({ isLoading: false });

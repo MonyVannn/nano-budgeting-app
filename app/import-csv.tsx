@@ -179,9 +179,6 @@ export default function ImportCSVScreen() {
           color: theme.textSecondary,
           marginTop: 4,
         },
-        mappingSection: {
-          opacity: parseResult?.success ? 1 : 0.5,
-        },
         typeToggleGroup: {
           flexDirection: "row",
           borderRadius: 10,
@@ -497,7 +494,7 @@ export default function ImportCSVScreen() {
           )}
         </View>
 
-        <View style={[styles.card, styles.mappingSection]}>
+        <View style={[styles.card]}>
           <Text style={styles.cardTitle}>Map your columns</Text>
           <Text style={styles.cardSubtitle}>
             Choose which CSV header maps to each field. Required fields are
@@ -508,6 +505,7 @@ export default function ImportCSVScreen() {
             {(["auto", "income", "expense"] as const).map((mode) => (
               <Pressable
                 key={mode}
+                disabled={!parseResult?.success}
                 style={[
                   styles.typeToggleButton,
                   typeMode === mode && styles.typeToggleButtonActive,
@@ -554,7 +552,7 @@ export default function ImportCSVScreen() {
                 ) : null}
                 <Pressable
                   style={styles.selectionBox}
-                  // disabled={!parseResult?.success}
+                  disabled={!parseResult?.success}
                   onPress={() => setActiveField(option.appField)}
                 >
                   {selectedHeader ? (

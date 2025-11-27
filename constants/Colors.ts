@@ -64,7 +64,7 @@ export const DarkTheme = {
   error: RobinhoodPalette.redOrange,
 
   tabIconDefault: RobinhoodPalette.mutedGrey,
-  tabIconSelected: RobinhoodPalette.robinNeon,
+  tabIconSelected: RobinhoodPalette.brightGreen,
   tabBar: RobinhoodPalette.black,
 
   border: RobinhoodPalette.lightGrey,
