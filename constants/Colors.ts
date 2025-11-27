@@ -55,6 +55,7 @@ export const DarkTheme = {
   chartRed: RobinhoodPalette.redOrange,
   chartYellow: RobinhoodPalette.lightYellow,
   chartNeon: RobinhoodPalette.robinNeon,
+  chartPurple: "#a855f7",
 
   primary: RobinhoodPalette.brightGreen,
   secondary: RobinhoodPalette.lightYellow,
@@ -101,6 +102,7 @@ export const LightTheme = {
   chartRed: RobinhoodPalette.redOrange,
   chartYellow: RobinhoodPalette.lightYellow,
   chartNeon: RobinhoodPalette.robinNeon,
+  chartPurple: "#a855f7",
 
   primary: RobinhoodPalette.brightGreen,
   secondary: RobinhoodPalette.lightYellow,

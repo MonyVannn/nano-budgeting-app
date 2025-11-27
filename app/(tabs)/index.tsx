@@ -316,7 +316,7 @@ export default function DashboardScreen() {
           gap: 12,
         },
         monthButton: {
-          backgroundColor: theme.divider,
+          backgroundColor: theme.background,
           borderRadius: 100,
           padding: 4,
         },
