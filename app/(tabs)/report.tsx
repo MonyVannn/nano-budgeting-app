@@ -135,7 +135,7 @@ export default function ReportScreen() {
           backgroundColor: theme.background,
         },
         contentContainer: {
-          paddingTop: Platform.OS === "ios" ? insets.top + 100 : 100,
+          paddingTop: Platform.OS === "ios" ? insets.top + 80 : 80,
           paddingBottom: 40,
           gap: 24,
         },
@@ -319,7 +319,7 @@ export default function ReportScreen() {
           paddingVertical: 4,
           paddingHorizontal: 10,
           borderRadius: 999,
-          backgroundColor: theme.surfaceHighlight,
+          backgroundColor: "transparent",
         },
         legendDot: {
           width: 10,
@@ -346,7 +346,7 @@ export default function ReportScreen() {
           color: theme.textSecondary,
         },
         pieLegend: {
-          gap: 12,
+          gap: 8,
         },
         pieLegendRow: {
           flexDirection: "row",
@@ -943,7 +943,7 @@ export default function ReportScreen() {
   const monthDelta = peakSpendValue - lastMonthTotal;
   const donutPalette = [
     theme.chartGreen,
-    theme.chartPurple,
+    theme.chartRed,
     theme.chartYellow,
     theme.chartNeon,
     theme.textSecondary,
@@ -1008,26 +1008,21 @@ export default function ReportScreen() {
           <View style={styles.metricGrid}>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>Total Income</Text>
-              <Text style={[styles.metricValue, { color: theme.income }]}>
+              <Text style={[styles.metricValue, { color: theme.text }]}>
                 {formatCurrency(totals.income)}
               </Text>
               <Text style={styles.metricDelta}>In selected window</Text>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>Total Expenses</Text>
-              <Text style={[styles.metricValue, { color: theme.expense }]}>
+              <Text style={[styles.metricValue, { color: theme.text }]}>
                 {formatCurrency(totals.expense)}
               </Text>
               <Text style={styles.metricDelta}>Cash outflows</Text>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>Net</Text>
-              <Text
-                style={[
-                  styles.metricValue,
-                  { color: netAmount >= 0 ? theme.chartGreen : theme.chartRed },
-                ]}
-              >
+              <Text style={[styles.metricValue, { color: theme.text }]}>
                 {formatCurrency(netAmount)}
               </Text>
               <Text style={styles.metricDelta}>

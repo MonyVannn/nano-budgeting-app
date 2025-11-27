@@ -1,11 +1,19 @@
 import { supabase } from "@/lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { useCategoryStore } from "./categoryStore";
 import { useRecurringStore } from "./recurringStore";
 import { useTransactionStore } from "./transactionStore";
+
+const BIOMETRIC_CREDENTIALS_KEY = "biometric_credentials";
+
+interface BiometricCredentials {
+  email: string;
+  password: string;
+}
 
 interface AuthState {
   session: Session | null;
@@ -16,11 +24,14 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, saveForBiometric?: boolean) => Promise<void>;
+  signInWithBiometric: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   startOver: () => Promise<void>;
   setSession: (session: Session | null) => void;
+  hasBiometricCredentials: () => Promise<boolean>;
+  clearBiometricCredentials: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -159,7 +170,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signIn: async (email: string, password: string) => {
+      signIn: async (email: string, password: string, saveForBiometric = true) => {
         try {
           set({ isLoading: true });
           const { data, error } = await supabase.auth.signInWithPassword({
@@ -168,6 +179,20 @@ export const useAuthStore = create<AuthState>()(
           });
 
           if (error) throw error;
+
+          // Save credentials securely for biometric authentication
+          if (saveForBiometric) {
+            try {
+              const credentials: BiometricCredentials = { email, password };
+              await SecureStore.setItemAsync(
+                BIOMETRIC_CREDENTIALS_KEY,
+                JSON.stringify(credentials)
+              );
+            } catch (storageError) {
+              console.warn("Failed to save biometric credentials:", storageError);
+              // Don't throw - this is not critical for sign in
+            }
+          }
 
           set({
             session: data.session,
@@ -179,6 +204,63 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         } finally {
           set({ isLoading: false });
+        }
+      },
+
+      signInWithBiometric: async () => {
+        try {
+          set({ isLoading: true });
+
+          // Retrieve saved credentials
+          const credentialsJson = await SecureStore.getItemAsync(
+            BIOMETRIC_CREDENTIALS_KEY
+          );
+
+          if (!credentialsJson) {
+            throw new Error("No saved credentials found. Please sign in with password first.");
+          }
+
+          const credentials: BiometricCredentials = JSON.parse(credentialsJson);
+
+          // Sign in with saved credentials
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: credentials.email,
+            password: credentials.password,
+          });
+
+          if (error) throw error;
+
+          set({
+            session: data.session,
+            user: data.user,
+            explicitlySignedOut: false,
+          });
+        } catch (error) {
+          console.error("Biometric sign in error:", error);
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      hasBiometricCredentials: async (): Promise<boolean> => {
+        try {
+          const credentials = await SecureStore.getItemAsync(
+            BIOMETRIC_CREDENTIALS_KEY
+          );
+          return credentials !== null;
+        } catch (error) {
+          console.error("Error checking biometric credentials:", error);
+          return false;
+        }
+      },
+
+      clearBiometricCredentials: async () => {
+        try {
+          await SecureStore.deleteItemAsync(BIOMETRIC_CREDENTIALS_KEY);
+        } catch (error) {
+          console.warn("Error clearing biometric credentials:", error);
+          // Don't throw - this is not critical
         }
       },
 
@@ -221,6 +303,10 @@ export const useAuthStore = create<AuthState>()(
 
           // Mark as explicitly signed out BEFORE clearing
           set({ explicitlySignedOut: true });
+
+          // Don't clear biometric credentials on sign out - keep them for next login
+          // This allows users to use Face ID on subsequent sign-ins
+          // Credentials will only be cleared if user explicitly disables biometric auth
 
           // Sign out from Supabase (this clears Supabase's internal storage)
           const { error } = await supabase.auth.signOut();

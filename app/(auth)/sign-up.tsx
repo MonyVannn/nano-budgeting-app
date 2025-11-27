@@ -155,10 +155,9 @@ export default function SignUpScreen() {
       fontSize: 16,
       fontWeight: "600",
       color: "white",
-      opacity: 0.5,
     },
     buttonDisabled: {
-      opacity: 0.6,
+      opacity: 0.9,
     },
     footer: {
       flexDirection: "row",
