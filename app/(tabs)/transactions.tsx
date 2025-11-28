@@ -1,4 +1,5 @@
 import { FABButton } from "@/components/FABButton";
+import { TabScreenWrapper } from "@/components/TabScreenWrapper";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
@@ -1001,9 +1002,10 @@ export default function TransactionsScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Sticky Header */}
-      <View style={stickyHeaderStyle}>
+    <TabScreenWrapper screenIndex={1}>
+      <View style={styles.container}>
+        {/* Sticky Header */}
+        <View style={stickyHeaderStyle}>
         <View style={styles.header}>
           <View
             style={{
@@ -1428,12 +1430,13 @@ export default function TransactionsScreen() {
         )}
       </ScrollView>
 
-      {/* FAB Button */}
-      <FABButton
-        onPress={() => {
-          router.push("/add-transaction");
-        }}
-      />
-    </View>
+        {/* FAB Button */}
+        <FABButton
+          onPress={() => {
+            router.push("/add-transaction");
+          }}
+        />
+      </View>
+    </TabScreenWrapper>
   );
 }

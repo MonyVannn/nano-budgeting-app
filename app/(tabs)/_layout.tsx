@@ -67,6 +67,8 @@ export default function TabLayout() {
         tabBarIconStyle: {
           marginTop: 0,
         },
+        // Enable smooth animations
+        animationEnabled: true,
       }}
     >
       <Tabs.Screen

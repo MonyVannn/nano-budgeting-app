@@ -1,3 +1,4 @@
+import { TabScreenWrapper } from "@/components/TabScreenWrapper";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
@@ -956,382 +957,390 @@ export default function ReportScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <View
-        style={[
-          styles.stickyHeader,
-          { paddingTop: Platform.OS === "ios" ? insets.top + 20 : 40 },
-        ]}
-      >
-        <View style={styles.header}>
-          <Text style={styles.title}>Report</Text>
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Reporting Window</Text>
-            <Text style={styles.sectionHelper}>{rangeLabel}</Text>
+    <TabScreenWrapper screenIndex={2}>
+      <View style={styles.container}>
+        <View
+          style={[
+            styles.stickyHeader,
+            { paddingTop: Platform.OS === "ios" ? insets.top + 20 : 40 },
+          ]}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Report</Text>
           </View>
-          <View style={styles.filterRow}>
-            {RANGE_OPTIONS.map((option) => {
-              const isActive = option.key === selectedRangeKey;
-              return (
-                <Pressable
-                  key={option.key}
-                  style={[
-                    styles.filterChip,
-                    isActive && styles.filterChipActive,
-                  ]}
-                  onPress={() => setSelectedRangeKey(option.key)}
-                >
-                  <Text
+        </View>
+
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Reporting Window</Text>
+              <Text style={styles.sectionHelper}>{rangeLabel}</Text>
+            </View>
+            <View style={styles.filterRow}>
+              {RANGE_OPTIONS.map((option) => {
+                const isActive = option.key === selectedRangeKey;
+                return (
+                  <Pressable
+                    key={option.key}
                     style={[
-                      styles.filterText,
-                      isActive && styles.filterTextActive,
+                      styles.filterChip,
+                      isActive && styles.filterChipActive,
                     ]}
+                    onPress={() => setSelectedRangeKey(option.key)}
                   >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.metricGrid}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Total Income</Text>
-              <Text style={[styles.metricValue, { color: theme.text }]}>
-                {formatCurrency(totals.income)}
-              </Text>
-              <Text style={styles.metricDelta}>In selected window</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Total Expenses</Text>
-              <Text style={[styles.metricValue, { color: theme.text }]}>
-                {formatCurrency(totals.expense)}
-              </Text>
-              <Text style={styles.metricDelta}>Cash outflows</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Net</Text>
-              <Text style={[styles.metricValue, { color: theme.text }]}>
-                {formatCurrency(netAmount)}
-              </Text>
-              <Text style={styles.metricDelta}>
-                Savings rate {savingsRate}%
-              </Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Avg. Daily Spend</Text>
-              <Text style={styles.metricValue}>
-                {formatCurrency(avgDailySpend, true)}
-              </Text>
-              <Text style={styles.metricDelta}>{daysInRange} day window</Text>
+                    <Text
+                      style={[
+                        styles.filterText,
+                        isActive && styles.filterTextActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
-        </View>
 
-        {isLoading && !hasTransactions ? (
-          <View style={styles.loadingWrapper}>
-            <ActivityIndicator color={theme.primary} />
-            <Text style={styles.sectionHelper}>
-              Crunching the latest numbers…
-            </Text>
-          </View>
-        ) : null}
-
-        {!hasTransactions && !isLoading ? (
-          <View style={styles.emptyStateWrapper}>
-            <Text style={styles.emptyTitle}>No transactions yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Import or add transactions to unlock detailed reporting, trend
-              lines, and category breakdowns.
-            </Text>
-          </View>
-        ) : null}
-
-        <View style={styles.section}>
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeaderRow}>
-              <View>
-                <Text style={styles.chartTitle}>Monthly Spend vs Budget</Text>
-                <Text style={styles.chartSubtitle}>
-                  Tracking {chartMonthLabel}'s cash outflows
+          <View style={styles.section}>
+            <View style={styles.metricGrid}>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Total Income</Text>
+                <Text style={[styles.metricValue, { color: theme.text }]}>
+                  {formatCurrency(totals.income)}
+                </Text>
+                <Text style={styles.metricDelta}>In selected window</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Total Expenses</Text>
+                <Text style={[styles.metricValue, { color: theme.text }]}>
+                  {formatCurrency(totals.expense)}
+                </Text>
+                <Text style={styles.metricDelta}>Cash outflows</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Net</Text>
+                <Text style={[styles.metricValue, { color: theme.text }]}>
+                  {formatCurrency(netAmount)}
+                </Text>
+                <Text style={styles.metricDelta}>
+                  Savings rate {savingsRate}%
                 </Text>
               </View>
-              <View style={styles.chartValueStack}>
-                <Text style={styles.chartValueLabel}>Spent</Text>
-                <Text style={styles.chartValueHighlight}>
-                  {formatCurrency(peakSpendValue)}
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Avg. Daily Spend</Text>
+                <Text style={styles.metricValue}>
+                  {formatCurrency(avgDailySpend, true)}
                 </Text>
-                <Text style={styles.chartValueSubtext}>
-                  {peakSpendDateLabel
-                    ? `As of ${peakSpendDateLabel}`
-                    : "As of latest day"}
-                </Text>
+                <Text style={styles.metricDelta}>{daysInRange} day window</Text>
               </View>
-            </View>
-
-            <MonthlySpendVsBudgetChart
-              theme={theme}
-              width={chartWidth}
-              formatCurrency={formatCurrency}
-              data={monthlyChart.points}
-              ticks={monthlyChart.ticks}
-              budgetValue={totalBudgeted}
-              maxValue={monthlyChart.maxValue}
-            />
-
-            <View style={styles.legendRow}>
-              <View style={styles.legendPill}>
-                <View
-                  style={[
-                    styles.legendLine,
-                    { backgroundColor: theme.chartGreen },
-                  ]}
-                />
-                <Text style={styles.legendLabel}>Spent</Text>
-              </View>
-              <View style={styles.legendPill}>
-                <View
-                  style={[
-                    styles.legendLine,
-                    styles.legendLineDashed,
-                    { borderColor: theme.chartRed },
-                  ]}
-                />
-                <Text style={styles.legendLabel}>
-                  {`Budgeted (${formatCurrency(totalBudgeted)})`}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.chartFooter}>
-              <Text style={styles.chartFooterText}>
-                {totalBudgeted > 0
-                  ? `Cumulative spending is ${
-                      peakSpendValue > totalBudgeted ? "above" : "below"
-                    } the ${formatCurrency(
-                      totalBudgeted
-                    )} budget target for this window.`
-                  : "Track daily spending progress over the selected window even without a set budget."}
-              </Text>
             </View>
           </View>
-        </View>
 
-        {categoryDonutData.segments.length ? (
+          {isLoading && !hasTransactions ? (
+            <View style={styles.loadingWrapper}>
+              <ActivityIndicator color={theme.primary} />
+              <Text style={styles.sectionHelper}>
+                Crunching the latest numbers…
+              </Text>
+            </View>
+          ) : null}
+
+          {!hasTransactions && !isLoading ? (
+            <View style={styles.emptyStateWrapper}>
+              <Text style={styles.emptyTitle}>No transactions yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Import or add transactions to unlock detailed reporting, trend
+                lines, and category breakdowns.
+              </Text>
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <View style={styles.chartCard}>
               <View style={styles.chartHeaderRow}>
                 <View>
-                  <Text style={styles.chartTitle}>Spending by Category</Text>
+                  <Text style={styles.chartTitle}>Monthly Spend vs Budget</Text>
                   <Text style={styles.chartSubtitle}>
-                    Month-to-date distribution
+                    Tracking {chartMonthLabel}'s cash outflows
                   </Text>
                 </View>
                 <View style={styles.chartValueStack}>
-                  <Text style={styles.chartValueLabel}>Total Spent</Text>
+                  <Text style={styles.chartValueLabel}>Spent</Text>
                   <Text style={styles.chartValueHighlight}>
-                    {formatCurrency(categoryDonutData.total, true)}
+                    {formatCurrency(peakSpendValue)}
                   </Text>
                   <Text style={styles.chartValueSubtext}>
-                    Across tracked categories
+                    {peakSpendDateLabel
+                      ? `As of ${peakSpendDateLabel}`
+                      : "As of latest day"}
                   </Text>
                 </View>
               </View>
 
-              <CategoryDonutChart
+              <MonthlySpendVsBudgetChart
                 theme={theme}
-                segments={coloredDonutSegments}
-                total={categoryDonutData.total}
+                width={chartWidth}
                 formatCurrency={formatCurrency}
+                data={monthlyChart.points}
+                ticks={monthlyChart.ticks}
+                budgetValue={totalBudgeted}
+                maxValue={monthlyChart.maxValue}
               />
 
-              <View style={styles.pieLegend}>
-                {coloredDonutSegments.map((segment) => {
-                  const color = segment.color;
-                  return (
-                    <View key={segment.label} style={styles.legendPill}>
-                      <View
-                        style={[styles.legendDot, { backgroundColor: color }]}
-                      />
-                      <View style={styles.pieChartLabel}>
-                        <Text style={styles.legendLabel}>{segment.label}</Text>
-                        <Text style={styles.legendValue}>
-                          {segment.percentage.toFixed(1)}% (
-                          {formatCurrency(segment.value, true)})
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {budgetPacingRows.length ? (
-          <View style={styles.section}>
-            <View style={styles.chartCard}>
-              <View style={styles.chartHeaderRow}>
-                <View>
-                  <Text style={styles.chartTitle}>Budget Pacing Status</Text>
-                  <Text style={styles.chartSubtitle}>
-                    Track category limits at a glance
+              <View style={styles.legendRow}>
+                <View style={styles.legendPill}>
+                  <View
+                    style={[
+                      styles.legendLine,
+                      { backgroundColor: theme.chartGreen },
+                    ]}
+                  />
+                  <Text style={styles.legendLabel}>Spent</Text>
+                </View>
+                <View style={styles.legendPill}>
+                  <View
+                    style={[
+                      styles.legendLine,
+                      styles.legendLineDashed,
+                      { borderColor: theme.chartRed },
+                    ]}
+                  />
+                  <Text style={styles.legendLabel}>
+                    {`Budgeted (${formatCurrency(totalBudgeted)})`}
                   </Text>
                 </View>
-              </View>
-
-              <View style={styles.barGroup}>
-                {budgetPacingRows.map((row) => {
-                  const progressWidth = `${Math.min(
-                    row.usage * 100,
-                    100
-                  )}%` as `${number}%`;
-                  const progressColor =
-                    row.usage < 0.75
-                      ? theme.chartGreen
-                      : row.usage < 0.9
-                      ? theme.chartYellow
-                      : theme.chartRed;
-                  return (
-                    <View key={row.id} style={styles.barRow}>
-                      <View style={styles.barRowHeader}>
-                        <Text style={styles.barLabel}>{row.name}</Text>
-                        <Text style={styles.barValue}>
-                          {Math.min(row.usage * 100, 999).toFixed(0)}%
-                        </Text>
-                      </View>
-                      <View style={styles.barTrack}>
-                        <View
-                          style={[
-                            styles.barFill,
-                            {
-                              width: progressWidth,
-                              backgroundColor: progressColor,
-                            },
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.barHelper}>
-                        {formatCurrency(row.spent, true)} of{" "}
-                        {formatCurrency(row.budget, true)} spent
-                      </Text>
-                    </View>
-                  );
-                })}
               </View>
 
               <View style={styles.chartFooter}>
                 <Text style={styles.chartFooterText}>
-                  Green bars are on track, yellow signals attention, and red
-                  indicates you&apos;re nearing or exceeding budget.
+                  {totalBudgeted > 0
+                    ? `Cumulative spending is ${
+                        peakSpendValue > totalBudgeted ? "above" : "below"
+                      } the ${formatCurrency(
+                        totalBudgeted
+                      )} budget target for this window.`
+                    : "Track daily spending progress over the selected window even without a set budget."}
                 </Text>
               </View>
             </View>
           </View>
-        ) : null}
 
-        <View style={styles.section}>
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeaderRow}>
-              <View>
-                <Text style={styles.chartTitle}>This Month vs Last Month</Text>
-                <Text style={styles.chartSubtitle}>
-                  Comparing {chartMonthLabel} to prior month
-                </Text>
-              </View>
-              <View style={styles.chartValueStack}>
-                <Text style={styles.chartValueLabel}>Delta</Text>
-                <Text
-                  style={[
-                    styles.chartValueHighlight,
-                    {
-                      color:
-                        monthDelta >= 0 ? theme.chartGreen : theme.chartRed,
-                    },
-                  ]}
-                >
-                  {formatCurrency(monthDelta)}
-                </Text>
-                <Text style={styles.chartValueSubtext}>
-                  vs last month&apos;s {formatCurrency(lastMonthTotal)}
-                </Text>
-              </View>
-            </View>
-
-            <ThisMonthVsLastMonthChart
-              theme={theme}
-              width={chartWidth}
-              formatCurrency={formatCurrency}
-              currentPoints={monthlyComparisonChart.currentPoints}
-              previousPoints={monthlyComparisonChart.previousPoints}
-              ticks={monthlyComparisonChart.ticks}
-              maxValue={monthlyComparisonChart.maxValue}
-            />
-
-            <View style={styles.legendRow}>
-              <View style={styles.legendPill}>
-                <View
-                  style={[
-                    styles.legendLine,
-                    { backgroundColor: theme.chartGreen },
-                  ]}
-                />
-                <Text style={styles.legendLabel}>This month</Text>
-              </View>
-              <View style={styles.legendPill}>
-                <View
-                  style={[
-                    styles.legendLine,
-                    { backgroundColor: theme.textSecondary },
-                  ]}
-                />
-                <Text style={styles.legendLabel}>Last month</Text>
-              </View>
-            </View>
-
-            <View style={styles.chartFooter}>
-              <Text style={styles.chartFooterText}>
-                {monthDelta >= 0
-                  ? `${chartMonthLabel} spending is up ${formatCurrency(
-                      monthDelta
-                    )} versus last month.`
-                  : `${chartMonthLabel} spending is down ${formatCurrency(
-                      Math.abs(monthDelta)
-                    )} versus last month.`}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {hasTransactions ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Highlights</Text>
-            <View style={styles.insightGrid}>
-              {insights.map((insight) => (
-                <View key={insight.label} style={styles.insightCard}>
-                  <Text style={styles.insightLabel}>{insight.label}</Text>
-                  <Text style={styles.insightValue}>{insight.value}</Text>
-                  {insight.subtext ? (
-                    <Text style={styles.insightSubtext}>{insight.subtext}</Text>
-                  ) : null}
+          {categoryDonutData.segments.length ? (
+            <View style={styles.section}>
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeaderRow}>
+                  <View>
+                    <Text style={styles.chartTitle}>Spending by Category</Text>
+                    <Text style={styles.chartSubtitle}>
+                      Month-to-date distribution
+                    </Text>
+                  </View>
+                  <View style={styles.chartValueStack}>
+                    <Text style={styles.chartValueLabel}>Total Spent</Text>
+                    <Text style={styles.chartValueHighlight}>
+                      {formatCurrency(categoryDonutData.total, true)}
+                    </Text>
+                    <Text style={styles.chartValueSubtext}>
+                      Across tracked categories
+                    </Text>
+                  </View>
                 </View>
-              ))}
+
+                <CategoryDonutChart
+                  theme={theme}
+                  segments={coloredDonutSegments}
+                  total={categoryDonutData.total}
+                  formatCurrency={formatCurrency}
+                />
+
+                <View style={styles.pieLegend}>
+                  {coloredDonutSegments.map((segment) => {
+                    const color = segment.color;
+                    return (
+                      <View key={segment.label} style={styles.legendPill}>
+                        <View
+                          style={[styles.legendDot, { backgroundColor: color }]}
+                        />
+                        <View style={styles.pieChartLabel}>
+                          <Text style={styles.legendLabel}>
+                            {segment.label}
+                          </Text>
+                          <Text style={styles.legendValue}>
+                            {segment.percentage.toFixed(1)}% (
+                            {formatCurrency(segment.value, true)})
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          ) : null}
+
+          {budgetPacingRows.length ? (
+            <View style={styles.section}>
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeaderRow}>
+                  <View>
+                    <Text style={styles.chartTitle}>Budget Pacing Status</Text>
+                    <Text style={styles.chartSubtitle}>
+                      Track category limits at a glance
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.barGroup}>
+                  {budgetPacingRows.map((row) => {
+                    const progressWidth = `${Math.min(
+                      row.usage * 100,
+                      100
+                    )}%` as `${number}%`;
+                    const progressColor =
+                      row.usage < 0.75
+                        ? theme.chartGreen
+                        : row.usage < 0.9
+                        ? theme.chartYellow
+                        : theme.chartRed;
+                    return (
+                      <View key={row.id} style={styles.barRow}>
+                        <View style={styles.barRowHeader}>
+                          <Text style={styles.barLabel}>{row.name}</Text>
+                          <Text style={styles.barValue}>
+                            {Math.min(row.usage * 100, 999).toFixed(0)}%
+                          </Text>
+                        </View>
+                        <View style={styles.barTrack}>
+                          <View
+                            style={[
+                              styles.barFill,
+                              {
+                                width: progressWidth,
+                                backgroundColor: progressColor,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.barHelper}>
+                          {formatCurrency(row.spent, true)} of{" "}
+                          {formatCurrency(row.budget, true)} spent
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.chartFooter}>
+                  <Text style={styles.chartFooterText}>
+                    Green bars are on track, yellow signals attention, and red
+                    indicates you&apos;re nearing or exceeding budget.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.section}>
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeaderRow}>
+                <View>
+                  <Text style={styles.chartTitle}>
+                    This Month vs Last Month
+                  </Text>
+                  <Text style={styles.chartSubtitle}>
+                    Comparing {chartMonthLabel} to prior month
+                  </Text>
+                </View>
+                <View style={styles.chartValueStack}>
+                  <Text style={styles.chartValueLabel}>Delta</Text>
+                  <Text
+                    style={[
+                      styles.chartValueHighlight,
+                      {
+                        color:
+                          monthDelta >= 0 ? theme.chartGreen : theme.chartRed,
+                      },
+                    ]}
+                  >
+                    {formatCurrency(monthDelta)}
+                  </Text>
+                  <Text style={styles.chartValueSubtext}>
+                    vs last month&apos;s {formatCurrency(lastMonthTotal)}
+                  </Text>
+                </View>
+              </View>
+
+              <ThisMonthVsLastMonthChart
+                theme={theme}
+                width={chartWidth}
+                formatCurrency={formatCurrency}
+                currentPoints={monthlyComparisonChart.currentPoints}
+                previousPoints={monthlyComparisonChart.previousPoints}
+                ticks={monthlyComparisonChart.ticks}
+                maxValue={monthlyComparisonChart.maxValue}
+              />
+
+              <View style={styles.legendRow}>
+                <View style={styles.legendPill}>
+                  <View
+                    style={[
+                      styles.legendLine,
+                      { backgroundColor: theme.chartGreen },
+                    ]}
+                  />
+                  <Text style={styles.legendLabel}>This month</Text>
+                </View>
+                <View style={styles.legendPill}>
+                  <View
+                    style={[
+                      styles.legendLine,
+                      { backgroundColor: theme.textSecondary },
+                    ]}
+                  />
+                  <Text style={styles.legendLabel}>Last month</Text>
+                </View>
+              </View>
+
+              <View style={styles.chartFooter}>
+                <Text style={styles.chartFooterText}>
+                  {monthDelta >= 0
+                    ? `${chartMonthLabel} spending is up ${formatCurrency(
+                        monthDelta
+                      )} versus last month.`
+                    : `${chartMonthLabel} spending is down ${formatCurrency(
+                        Math.abs(monthDelta)
+                      )} versus last month.`}
+                </Text>
+              </View>
             </View>
           </View>
-        ) : null}
-      </ScrollView>
-    </View>
+
+          {hasTransactions ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Highlights</Text>
+              <View style={styles.insightGrid}>
+                {insights.map((insight) => (
+                  <View key={insight.label} style={styles.insightCard}>
+                    <Text style={styles.insightLabel}>{insight.label}</Text>
+                    <Text style={styles.insightValue}>{insight.value}</Text>
+                    {insight.subtext ? (
+                      <Text style={styles.insightSubtext}>
+                        {insight.subtext}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    </TabScreenWrapper>
   );
 }
 

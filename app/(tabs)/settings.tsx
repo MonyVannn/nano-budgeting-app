@@ -1,3 +1,4 @@
+import { TabScreenWrapper } from "@/components/TabScreenWrapper";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore } from "@/store";
@@ -240,9 +241,10 @@ export default function SettingsScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Sticky Header */}
-      <View style={stickyHeaderStyle}>
+    <TabScreenWrapper screenIndex={3}>
+      <View style={styles.container}>
+        {/* Sticky Header */}
+        <View style={stickyHeaderStyle}>
         <View style={styles.header}>
           <Text style={styles.title}>Settings</Text>
         </View>
@@ -356,7 +358,8 @@ export default function SettingsScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </TabScreenWrapper>
   );
 }

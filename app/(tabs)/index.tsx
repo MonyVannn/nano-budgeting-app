@@ -1,4 +1,5 @@
 import { FABButton } from "@/components/FABButton";
+import { TabScreenWrapper } from "@/components/TabScreenWrapper";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
@@ -751,9 +752,10 @@ export default function DashboardScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Sticky Header */}
-      <View style={stickyHeaderStyle}>
+    <TabScreenWrapper screenIndex={0}>
+      <View style={styles.container}>
+        {/* Sticky Header */}
+        <View style={stickyHeaderStyle}>
         <View style={styles.header}>
           <SvgXml xml={logoXml} width={110} height={30} />
           <View style={styles.monthControls}>
@@ -1114,12 +1116,13 @@ export default function DashboardScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* FAB Button */}
-      <FABButton
-        onPress={() => {
-          router.push("/add-transaction");
-        }}
-      />
-    </View>
+        {/* FAB Button */}
+        <FABButton
+          onPress={() => {
+            router.push("/add-transaction");
+          }}
+        />
+      </View>
+    </TabScreenWrapper>
   );
 }
