@@ -1,11 +1,12 @@
 import { FABButton } from "@/components/FABButton";
 import { TabScreenWrapper } from "@/components/TabScreenWrapper";
 import { Text } from "@/components/Themed";
+import { TransactionsSkeleton } from "@/components/TransactionsSkeleton";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
   ArrowDownRight,
@@ -16,7 +17,7 @@ import {
   Download,
   UploadCloud,
 } from "lucide-react-native";
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -62,15 +63,19 @@ export default function TransactionsScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
 
-  // Fetch transactions and categories on mount and when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      if (user?.id) {
+  // Fetch transactions and categories only on initial mount
+  // Removed useFocusEffect to prevent delays when switching tabs
+  useEffect(() => {
+    if (user?.id) {
+      // Only fetch if we don't have data yet
+      if (transactions.length === 0 && !isLoading) {
         fetchTransactions(user.id);
+      }
+      if (categories.length === 0 && !isLoading) {
         fetchCategories(user.id);
       }
-    }, [user?.id, fetchTransactions, fetchCategories])
-  );
+    }
+  }, [user?.id]); // Only run when user changes, not on every focus
 
   // Helper function to format date as YYYY-MM-DD in local timezone
   const formatDateLocal = (date: Date): string => {
@@ -117,11 +122,14 @@ export default function TransactionsScreen() {
   }, [viewType, periodOffset]);
 
   // Get category name by ID (define before useMemo)
-  const getCategoryName = (categoryId: string | null) => {
-    if (!categoryId) return "Uncategorized";
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category?.name || "Unknown";
-  };
+  const getCategoryName = useCallback(
+    (categoryId: string | null) => {
+      if (!categoryId) return "Uncategorized";
+      const category = categories.find((cat) => cat.id === categoryId);
+      return category?.name || "Unknown";
+    },
+    [categories]
+  );
 
   // Filter transactions for current period
   const filteredTransactions = useMemo(() => {
@@ -247,7 +255,7 @@ export default function TransactionsScreen() {
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filteredTransactions]);
 
-  const toggleSelectMode = () => {
+  const toggleSelectMode = useCallback(() => {
     setActiveTooltip(null);
     setSelectMode((prev) => {
       if (prev) {
@@ -255,9 +263,9 @@ export default function TransactionsScreen() {
       }
       return !prev;
     });
-  };
+  }, []);
 
-  const toggleSelection = (id: string) => {
+  const toggleSelection = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -267,7 +275,7 @@ export default function TransactionsScreen() {
       }
       return next;
     });
-  };
+  }, []);
 
   const handleSelectAllCurrent = () => {
     if (!selectMode) return;
@@ -638,8 +646,8 @@ export default function TransactionsScreen() {
     );
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
+  // Format date for display - memoized to prevent recreation
+  const formatDate = useCallback((dateString: string) => {
     // Parse date string (YYYY-MM-DD) in local timezone
     const [year, month, day] = dateString.split("T")[0].split("-").map(Number);
     const date = new Date(year, month - 1, day);
@@ -664,7 +672,10 @@ export default function TransactionsScreen() {
           date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
       });
     }
-  };
+  }, []);
+
+  // Memoized TransactionItem component to prevent unnecessary re-renders
+  // Defined after styles are created
 
   const styles = useMemo(
     () =>
@@ -1001,434 +1012,445 @@ export default function TransactionsScreen() {
     [headerHeight, insets.bottom]
   );
 
+  // Show skeleton while loading initial data
+  if (isLoading && transactions.length === 0) {
+    return (
+      <TabScreenWrapper screenIndex={1}>
+        <TransactionsSkeleton />
+      </TabScreenWrapper>
+    );
+  }
+
   return (
     <TabScreenWrapper screenIndex={1}>
       <View style={styles.container}>
         {/* Sticky Header */}
         <View style={stickyHeaderStyle}>
-        <View style={styles.header}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Text style={styles.title}>
-              {selectMode ? "Select transactions" : "Transactions"}
-            </Text>
-            <View style={styles.headerActions}>
-              {selectMode ? (
-                <Pressable
-                  style={styles.iconButton}
-                  onPress={toggleSelectMode}
-                  hitSlop={10}
-                >
-                  <Text style={{ color: theme.text }}>Cancel</Text>
-                </Pressable>
-              ) : (
-                <>
-                  <Pressable
-                    style={styles.iconButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      toggleSelectMode();
-                    }}
-                    hitSlop={10}
-                  >
-                    <Text style={{ color: theme.text }}>Select</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.iconButton}
-                    onPress={handleExportCurrentPeriod}
-                    disabled={isExporting || filteredTransactions.length === 0}
-                    onLongPress={() => setActiveTooltip("export")}
-                    onPressOut={() => setActiveTooltip(null)}
-                    hitSlop={10}
-                  >
-                    {isExporting ? (
-                      <ActivityIndicator size="small" color={theme.text} />
-                    ) : (
-                      <Download
-                        size={20}
-                        color={
-                          filteredTransactions.length
-                            ? theme.text
-                            : theme.textSecondary
-                        }
-                      />
-                    )}
-                  </Pressable>
-                  <Pressable
-                    style={styles.iconButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setActiveTooltip(null);
-                      router.push("/import-csv");
-                    }}
-                    onLongPress={() => setActiveTooltip("import")}
-                    onPressOut={() => setActiveTooltip(null)}
-                    hitSlop={10}
-                  >
-                    <UploadCloud size={20} color={theme.text} />
-                  </Pressable>
-                </>
-              )}
-            </View>
-          </View>
-          {activeTooltip && !selectMode && (
-            <View style={styles.tooltip}>
-              <Text style={styles.tooltipText}>
-                {activeTooltip === "import" ? "Import from CSV" : "Share PDF"}
+          <View style={styles.header}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text style={styles.title}>
+                {selectMode ? "Select transactions" : "Transactions"}
               </Text>
-            </View>
-          )}
-          {selectMode && (
-            <View style={styles.selectionBanner}>
-              <Text style={styles.selectionBannerText}>
-                {selectedIds.size} selected
-              </Text>
-              <View style={styles.selectionActions}>
-                <Pressable
-                  style={styles.selectionActionButton}
-                  onPress={handleSelectAllCurrent}
-                >
-                  <Text style={styles.selectionActionText}>Select all</Text>
-                </Pressable>
-                <Pressable
-                  style={[
-                    styles.selectionActionButton,
-                    { backgroundColor: theme.expense + "15" },
-                  ]}
-                  onPress={handleDeleteSelected}
-                >
-                  <Text
-                    style={[
-                      styles.selectionActionText,
-                      { color: theme.expense },
-                    ]}
-                  >
-                    Delete
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={contentContainerStyle}
-        onScrollBeginDrag={() => {
-          // Close dropdown when scrolling
-          if (showViewDropdown) {
-            setShowViewDropdown(false);
-          }
-        }}
-      >
-        {/* Chart Section */}
-        {transactions.length > 0 && (
-          <View style={styles.chartContainer}>
-            <View style={styles.chartHeader}>
-              {/* Date Selector - Left */}
-              <View style={styles.chartNav}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setPeriodOffset(periodOffset - 1);
-                  }}
-                  style={styles.chartNavButton}
-                >
-                  <ChevronLeft size={18} color={theme.text} />
-                </Pressable>
-                <Text style={styles.chartPeriod}>{periodLabel}</Text>
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setPeriodOffset(periodOffset + 1);
-                  }}
-                  style={styles.chartNavButton}
-                >
-                  <ChevronRight size={18} color={theme.text} />
-                </Pressable>
-              </View>
-
-              {/* Actions - mode toggle + view selector */}
-              <View style={styles.chartActions}>
-                <Pressable
-                  style={[
-                    styles.chartModeIconButton,
-                    chartMode === "expense"
-                      ? styles.chartModeIconExpense
-                      : styles.chartModeIconIncome,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setChartMode(
-                      chartMode === "expense" ? "income" : "expense"
-                    );
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Show ${
-                    chartMode === "expense" ? "income" : "expenses"
-                  } in chart`}
-                >
-                  {chartMode === "expense" ? (
-                    <ArrowDownRight size={18} color={theme.background} />
-                  ) : (
-                    <ArrowUpRight size={18} color={theme.background} />
-                  )}
-                </Pressable>
-                <View style={styles.chartViewDropdown}>
+              <View style={styles.headerActions}>
+                {selectMode ? (
                   <Pressable
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setShowViewDropdown(!showViewDropdown);
-                    }}
-                    style={styles.chartViewDropdownButton}
+                    style={styles.iconButton}
+                    onPress={toggleSelectMode}
+                    hitSlop={10}
                   >
-                    <Text style={styles.chartViewDropdownText}>
-                      {viewType === "week" ? "Week" : "Month"}
-                    </Text>
-                    <ChevronDown size={16} color={theme.textSecondary} />
+                    <Text style={{ color: theme.text }}>Cancel</Text>
                   </Pressable>
-                  {showViewDropdown && (
-                    <View style={styles.chartViewDropdownMenuWrapper}>
-                      <View style={styles.chartViewDropdownMenu}>
-                        <Pressable
-                          onPress={() => {
-                            Haptics.impactAsync(
-                              Haptics.ImpactFeedbackStyle.Light
-                            );
-                            setViewType("week");
-                            setPeriodOffset(0);
-                            setShowViewDropdown(false);
-                          }}
-                          style={[
-                            styles.chartViewDropdownMenuItem,
-                            viewType === "week" && {
-                              backgroundColor: theme.surfaceHighlight,
-                            },
-                          ]}
-                        >
-                          <Text style={styles.chartViewDropdownMenuItemText}>
-                            Week
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => {
-                            Haptics.impactAsync(
-                              Haptics.ImpactFeedbackStyle.Light
-                            );
-                            setViewType("month");
-                            setPeriodOffset(0);
-                            setShowViewDropdown(false);
-                          }}
-                          style={[
-                            styles.chartViewDropdownMenuItem,
-                            styles.chartViewDropdownMenuItemLast,
-                            viewType === "month" && {
-                              backgroundColor: theme.surfaceHighlight,
-                            },
-                          ]}
-                        >
-                          <Text style={styles.chartViewDropdownMenuItemText}>
-                            Month
-                          </Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-            <View style={styles.chartWrapper}>
-              {chartData.length === 0 ? (
-                <View style={styles.emptyChartState}>
-                  <Text style={styles.emptyChartText}>
-                    {chartMode === "expense"
-                      ? "No expenses in this period"
-                      : "No income in this period"}
-                  </Text>
-                </View>
-              ) : (
-                (() => {
-                  const screenWidth = Dimensions.get("window").width;
-                  const chartWidth = screenWidth - 40; // Account for padding
-                  const dataPoints = chartData.length;
-
-                  // Calculate dynamic bar width and spacing to use full width
-                  let barWidth: number;
-                  let spacing: number;
-
-                  if (viewType === "week") {
-                    // For week (7 days), use fixed spacing
-                    spacing = 8;
-                    barWidth = Math.max(
-                      20,
-                      (chartWidth - (dataPoints - 1) * spacing - 60) /
-                        Math.max(dataPoints, 1)
-                    );
-                  } else {
-                    // For month, calculate based on number of data points (should be ~4-5 for 7 days apart)
-                    spacing = 12;
-                    barWidth = Math.max(
-                      25,
-                      (chartWidth - (dataPoints - 1) * spacing - 60) /
-                        Math.max(dataPoints, 1)
-                    );
-                  }
-
-                  const chartMax =
-                    chartData.length > 0
-                      ? Math.max(...chartData.map((entry) => entry.value), 0) *
-                          1.1 || 100
-                      : 100;
-
-                  const chartColor =
-                    chartMode === "expense" ? theme.expense : theme.income;
-
-                  return (
-                    <BarChart
-                      key={`chart-${chartMode}-${viewType}-${
-                        chartData.length
-                      }-${JSON.stringify(chartData.map((d) => d.value))}`}
-                      data={chartData}
-                      width={chartWidth}
-                      height={200}
-                      barWidth={barWidth}
-                      spacing={spacing}
-                      frontColor={chartColor}
-                      gradientColor={chartColor}
-                      showGradient
-                      isAnimated
-                      animationDuration={800}
-                      noOfSections={4}
-                      maxValue={chartMax}
-                      yAxisThickness={0.5}
-                      xAxisThickness={0.5}
-                      yAxisTextStyle={{
-                        color: theme.textSecondary,
-                        fontSize: 11,
-                        fontWeight: "400",
+                ) : (
+                  <>
+                    <Pressable
+                      style={styles.iconButton}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        toggleSelectMode();
                       }}
-                      xAxisLabelTextStyle={{
-                        color: theme.textSecondary,
-                        fontSize: 10,
-                        fontWeight: "400",
-                      }}
-                      rulesColor={theme.divider}
-                      rulesType="solid"
-                      showYAxisIndices={false}
-                      showXAxisIndices={false}
-                      formatYLabel={(value) =>
-                        `$${Math.round(parseFloat(value))}`
+                      hitSlop={10}
+                    >
+                      <Text style={{ color: theme.text }}>Select</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.iconButton}
+                      onPress={handleExportCurrentPeriod}
+                      disabled={
+                        isExporting || filteredTransactions.length === 0
                       }
-                      showValuesAsTopLabel={false}
-                      barBorderTopLeftRadius={4}
-                      barBorderTopRightRadius={4}
-                      backgroundColor="transparent"
-                    />
-                  );
-                })()
-              )}
+                      onLongPress={() => setActiveTooltip("export")}
+                      onPressOut={() => setActiveTooltip(null)}
+                      hitSlop={10}
+                    >
+                      {isExporting ? (
+                        <ActivityIndicator size="small" color={theme.text} />
+                      ) : (
+                        <Download
+                          size={20}
+                          color={
+                            filteredTransactions.length
+                              ? theme.text
+                              : theme.textSecondary
+                          }
+                        />
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={styles.iconButton}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setActiveTooltip(null);
+                        router.push("/import-csv");
+                      }}
+                      onLongPress={() => setActiveTooltip("import")}
+                      onPressOut={() => setActiveTooltip(null)}
+                      hitSlop={10}
+                    >
+                      <UploadCloud size={20} color={theme.text} />
+                    </Pressable>
+                  </>
+                )}
+              </View>
             </View>
-          </View>
-        )}
-
-        {isLoading && transactions.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-          </View>
-        ) : filteredTransactions.length === 0 ? (
-          <View style={styles.emptyStateWrapper}>
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                {transactions.length === 0
-                  ? "No transactions yet"
-                  : "No transactions in this period"}
-              </Text>
-              <Text style={styles.emptySubtext}>
-                {transactions.length === 0
-                  ? "Import transactions from CSV or add them manually to get started"
-                  : "Change the period or add new transactions"}
-              </Text>
-            </View>
-          </View>
-        ) : (
-          groupedTransactions.map(([dateKey, dateTransactions]) => (
-            <View key={dateKey} style={styles.transactionGroup}>
-              <Text style={styles.dateHeader}>{formatDate(dateKey)}</Text>
-              {dateTransactions.map((transaction) => (
-                <Pressable
-                  key={transaction.id}
-                  style={[
-                    styles.transactionItemWrapper,
-                    selectedIds.has(transaction.id) && {
-                      borderColor: theme.primary,
-                      borderWidth: 1,
-                    },
-                  ]}
-                  onPress={() => {
-                    if (selectMode) {
-                      toggleSelection(transaction.id);
-                      return;
-                    }
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push({
-                      pathname: "/transaction-detail",
-                      params: { id: transaction.id },
-                    });
-                  }}
-                  onLongPress={() => {
-                    if (!selectMode) {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setSelectMode(true);
-                      setSelectedIds(new Set([transaction.id]));
-                    }
-                  }}
-                >
-                  <View style={styles.transactionItem}>
-                    <View style={styles.transactionLeft}>
-                      <Text style={styles.transactionDescription}>
-                        {transaction.description || "No description"}
-                      </Text>
-                      <View style={styles.transactionMeta}>
-                        <Text style={styles.transactionCategory}>
-                          {getCategoryName(transaction.category_id)}
-                        </Text>
-                        {transaction.account && (
-                          <>
-                            <Text style={{ color: theme.textTertiary }}>•</Text>
-                            <Text style={styles.transactionAccount}>
-                              {transaction.account}
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                    </View>
+            {activeTooltip && !selectMode && (
+              <View style={styles.tooltip}>
+                <Text style={styles.tooltipText}>
+                  {activeTooltip === "import" ? "Import from CSV" : "Share PDF"}
+                </Text>
+              </View>
+            )}
+            {selectMode && (
+              <View style={styles.selectionBanner}>
+                <Text style={styles.selectionBannerText}>
+                  {selectedIds.size} selected
+                </Text>
+                <View style={styles.selectionActions}>
+                  <Pressable
+                    style={styles.selectionActionButton}
+                    onPress={handleSelectAllCurrent}
+                  >
+                    <Text style={styles.selectionActionText}>Select all</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.selectionActionButton,
+                      { backgroundColor: theme.expense + "15" },
+                    ]}
+                    onPress={handleDeleteSelected}
+                  >
                     <Text
                       style={[
-                        styles.transactionAmount,
-                        {
-                          color: transaction.is_expense
-                            ? theme.expense
-                            : theme.income,
-                        },
+                        styles.selectionActionText,
+                        { color: theme.expense },
                       ]}
                     >
-                      {transaction.is_expense ? "-" : "+"}$
-                      {transaction.amount.toFixed(2)}
+                      Delete
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={contentContainerStyle}
+          onScrollBeginDrag={() => {
+            // Close dropdown when scrolling
+            if (showViewDropdown) {
+              setShowViewDropdown(false);
+            }
+          }}
+        >
+          {/* Chart Section */}
+          {transactions.length > 0 && (
+            <View style={styles.chartContainer}>
+              <View style={styles.chartHeader}>
+                {/* Date Selector - Left */}
+                <View style={styles.chartNav}>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setPeriodOffset(periodOffset - 1);
+                    }}
+                    style={styles.chartNavButton}
+                  >
+                    <ChevronLeft size={18} color={theme.text} />
+                  </Pressable>
+                  <Text style={styles.chartPeriod}>{periodLabel}</Text>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setPeriodOffset(periodOffset + 1);
+                    }}
+                    style={styles.chartNavButton}
+                  >
+                    <ChevronRight size={18} color={theme.text} />
+                  </Pressable>
+                </View>
+
+                {/* Actions - mode toggle + view selector */}
+                <View style={styles.chartActions}>
+                  <Pressable
+                    style={[
+                      styles.chartModeIconButton,
+                      chartMode === "expense"
+                        ? styles.chartModeIconExpense
+                        : styles.chartModeIconIncome,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setChartMode(
+                        chartMode === "expense" ? "income" : "expense"
+                      );
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${
+                      chartMode === "expense" ? "income" : "expenses"
+                    } in chart`}
+                  >
+                    {chartMode === "expense" ? (
+                      <ArrowDownRight size={18} color={theme.background} />
+                    ) : (
+                      <ArrowUpRight size={18} color={theme.background} />
+                    )}
+                  </Pressable>
+                  <View style={styles.chartViewDropdown}>
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setShowViewDropdown(!showViewDropdown);
+                      }}
+                      style={styles.chartViewDropdownButton}
+                    >
+                      <Text style={styles.chartViewDropdownText}>
+                        {viewType === "week" ? "Week" : "Month"}
+                      </Text>
+                      <ChevronDown size={16} color={theme.textSecondary} />
+                    </Pressable>
+                    {showViewDropdown && (
+                      <View style={styles.chartViewDropdownMenuWrapper}>
+                        <View style={styles.chartViewDropdownMenu}>
+                          <Pressable
+                            onPress={() => {
+                              Haptics.impactAsync(
+                                Haptics.ImpactFeedbackStyle.Light
+                              );
+                              setViewType("week");
+                              setPeriodOffset(0);
+                              setShowViewDropdown(false);
+                            }}
+                            style={[
+                              styles.chartViewDropdownMenuItem,
+                              viewType === "week" && {
+                                backgroundColor: theme.surfaceHighlight,
+                              },
+                            ]}
+                          >
+                            <Text style={styles.chartViewDropdownMenuItemText}>
+                              Week
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => {
+                              Haptics.impactAsync(
+                                Haptics.ImpactFeedbackStyle.Light
+                              );
+                              setViewType("month");
+                              setPeriodOffset(0);
+                              setShowViewDropdown(false);
+                            }}
+                            style={[
+                              styles.chartViewDropdownMenuItem,
+                              styles.chartViewDropdownMenuItemLast,
+                              viewType === "month" && {
+                                backgroundColor: theme.surfaceHighlight,
+                              },
+                            ]}
+                          >
+                            <Text style={styles.chartViewDropdownMenuItemText}>
+                              Month
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </View>
+              <View style={styles.chartWrapper}>
+                {chartData.length === 0 ? (
+                  <View style={styles.emptyChartState}>
+                    <Text style={styles.emptyChartText}>
+                      {chartMode === "expense"
+                        ? "No expenses in this period"
+                        : "No income in this period"}
                     </Text>
                   </View>
-                </Pressable>
-              ))}
+                ) : (
+                  (() => {
+                    const screenWidth = Dimensions.get("window").width;
+                    const chartWidth = screenWidth - 40; // Account for padding
+                    const dataPoints = chartData.length;
+
+                    // Calculate dynamic bar width and spacing to use full width
+                    let barWidth: number;
+                    let spacing: number;
+
+                    if (viewType === "week") {
+                      // For week (7 days), use fixed spacing
+                      spacing = 8;
+                      barWidth = Math.max(
+                        20,
+                        (chartWidth - (dataPoints - 1) * spacing - 60) /
+                          Math.max(dataPoints, 1)
+                      );
+                    } else {
+                      // For month, calculate based on number of data points (should be ~4-5 for 7 days apart)
+                      spacing = 12;
+                      barWidth = Math.max(
+                        25,
+                        (chartWidth - (dataPoints - 1) * spacing - 60) /
+                          Math.max(dataPoints, 1)
+                      );
+                    }
+
+                    const chartMax =
+                      chartData.length > 0
+                        ? Math.max(
+                            ...chartData.map((entry) => entry.value),
+                            0
+                          ) * 1.1 || 100
+                        : 100;
+
+                    const chartColor =
+                      chartMode === "expense" ? theme.expense : theme.income;
+
+                    return (
+                      <BarChart
+                        key={`chart-${chartMode}-${viewType}-${
+                          chartData.length
+                        }-${JSON.stringify(chartData.map((d) => d.value))}`}
+                        data={chartData}
+                        width={chartWidth}
+                        height={200}
+                        barWidth={barWidth}
+                        spacing={spacing}
+                        frontColor={chartColor}
+                        gradientColor={chartColor}
+                        showGradient
+                        isAnimated
+                        animationDuration={800}
+                        noOfSections={4}
+                        maxValue={chartMax}
+                        yAxisThickness={0.5}
+                        xAxisThickness={0.5}
+                        yAxisTextStyle={{
+                          color: theme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: "400",
+                        }}
+                        xAxisLabelTextStyle={{
+                          color: theme.textSecondary,
+                          fontSize: 10,
+                          fontWeight: "400",
+                        }}
+                        rulesColor={theme.divider}
+                        rulesType="solid"
+                        showYAxisIndices={false}
+                        showXAxisIndices={false}
+                        formatYLabel={(value) =>
+                          `$${Math.round(parseFloat(value))}`
+                        }
+                        showValuesAsTopLabel={false}
+                        barBorderTopLeftRadius={4}
+                        barBorderTopRightRadius={4}
+                        backgroundColor="transparent"
+                      />
+                    );
+                  })()
+                )}
+              </View>
             </View>
-          ))
-        )}
-      </ScrollView>
+          )}
+
+          {filteredTransactions.length === 0 ? (
+            <View style={styles.emptyStateWrapper}>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  {transactions.length === 0
+                    ? "No transactions yet"
+                    : "No transactions in this period"}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {transactions.length === 0
+                    ? "Import transactions from CSV or add them manually to get started"
+                    : "Change the period or add new transactions"}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            groupedTransactions.map(([dateKey, dateTransactions]) => (
+              <View key={dateKey} style={styles.transactionGroup}>
+                <Text style={styles.dateHeader}>{formatDate(dateKey)}</Text>
+                {dateTransactions.map((transaction) => (
+                  <Pressable
+                    key={transaction.id}
+                    style={[
+                      styles.transactionItemWrapper,
+                      selectedIds.has(transaction.id) && {
+                        borderColor: theme.primary,
+                        borderWidth: 1,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (selectMode) {
+                        toggleSelection(transaction.id);
+                        return;
+                      }
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push({
+                        pathname: "/transaction-detail",
+                        params: { id: transaction.id },
+                      });
+                    }}
+                    onLongPress={() => {
+                      if (!selectMode) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setSelectMode(true);
+                        setSelectedIds(new Set([transaction.id]));
+                      }
+                    }}
+                  >
+                    <View style={styles.transactionItem}>
+                      <View style={styles.transactionLeft}>
+                        <Text style={styles.transactionDescription}>
+                          {transaction.description || "No description"}
+                        </Text>
+                        <View style={styles.transactionMeta}>
+                          <Text style={styles.transactionCategory}>
+                            {getCategoryName(transaction.category_id)}
+                          </Text>
+                          {transaction.account && (
+                            <>
+                              <Text style={{ color: theme.textTertiary }}>
+                                •
+                              </Text>
+                              <Text style={styles.transactionAccount}>
+                                {transaction.account}
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                      <Text
+                        style={[
+                          styles.transactionAmount,
+                          {
+                            color: transaction.is_expense
+                              ? theme.expense
+                              : theme.income,
+                          },
+                        ]}
+                      >
+                        {transaction.is_expense ? "-" : "+"}$
+                        {transaction.amount.toFixed(2)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ))
+          )}
+        </ScrollView>
 
         {/* FAB Button */}
         <FABButton

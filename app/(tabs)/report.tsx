@@ -2,8 +2,7 @@ import { TabScreenWrapper } from "@/components/TabScreenWrapper";
 import { Text } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -93,13 +92,23 @@ export default function ReportScreen() {
   } = useCategoryStore();
 
   const [selectedRangeKey, setSelectedRangeKey] = useState<RangeKey>("30d");
-  useFocusEffect(
-    useCallback(() => {
-      if (!user?.id) return;
+
+  // Memoized handler for range selection
+  const handleRangeChange = useCallback((key: RangeKey) => {
+    setSelectedRangeKey(key);
+  }, []);
+
+  // Fetch only on initial mount, not on every focus
+  useEffect(() => {
+    if (!user?.id) return;
+    // Only fetch if we don't have data yet to avoid unnecessary delays
+    if (transactions.length === 0 && !isTransactionLoading) {
       fetchTransactions(user.id);
+    }
+    if (categories.length === 0 && !isCategoryLoading) {
       fetchCategories(user.id);
-    }, [user?.id, fetchTransactions, fetchCategories])
-  );
+    }
+  }, [user?.id]); // Only run when user changes, not on every focus
 
   const styles = useMemo(
     () =>
@@ -990,7 +999,7 @@ export default function ReportScreen() {
                       styles.filterChip,
                       isActive && styles.filterChipActive,
                     ]}
-                    onPress={() => setSelectedRangeKey(option.key)}
+                    onPress={() => handleRangeChange(option.key)}
                   >
                     <Text
                       style={[

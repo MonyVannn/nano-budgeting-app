@@ -7,7 +7,8 @@ import { useFonts } from "expo-font";
 import { router, Stack, usePathname, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Platform, InteractionManager } from "react-native";
 import "react-native-reanimated";
 
 import { ThemeProvider, useTheme } from "@/constants/ThemeContext";
@@ -107,6 +108,10 @@ function RootLayoutNav() {
     undefined
   );
 
+  // Track navigation attempts to prevent multiple navigations
+  const navigationAttemptRef = useRef<number>(0);
+  const lastNavigationRef = useRef<string | null>(null);
+
   // Check if user needs onboarding (has no categories)
   useEffect(() => {
     // Reset onboarding check when user changes
@@ -116,47 +121,25 @@ function RootLayoutNav() {
       setPreviousUserId(user?.id);
       // Clear categories when user changes to prevent stale data
       clearCategories();
+      // Reset navigation tracking when user changes
+      lastNavigationRef.current = null;
+      navigationAttemptRef.current = 0;
     }
 
     // Only check onboarding if we have a user, aren't already checking, and categories aren't loading
-    if (user?.id && !isCheckingOnboarding && !categoriesLoading) {
+    // Also ensure we haven't already checked for this user
+    if (user?.id && !isCheckingOnboarding && !categoriesLoading && !hasCheckedOnboarding) {
       setIsCheckingOnboarding(true);
       fetchCategories(user.id)
         .then(() => {
           // Ensure categories are loaded before marking as checked
           // Categories are now in the store, navigation effect will pick them up
           setHasCheckedOnboarding(true);
-
-          // Trigger navigation immediately if we're on auth screen
-          // Get fresh categories from store
-          const currentCategories = useCategoryStore.getState().categories;
-          const expenseCurrentCategories = currentCategories.filter(
-            (cat) => cat.type === "expense"
-          );
-
-          if (isAuthRoute && !isTabsRoute) {
-            if (expenseCurrentCategories.length > 0) {
-              setTimeout(() => {
-                router.replace("/(tabs)");
-              }, 100);
-            } else {
-              setTimeout(() => {
-                router.replace("/(onboarding)/select-categories" as any);
-              }, 100);
-            }
-          }
         })
         .catch((error) => {
           console.error("Error checking onboarding:", error);
           // Set to true even on error to prevent infinite loop, but navigation will use empty categories
           setHasCheckedOnboarding(true);
-
-          // Still try to navigate on error
-          if (isAuthRoute && !isTabsRoute) {
-            setTimeout(() => {
-              router.replace("/(onboarding)/select-categories" as any);
-            }, 100);
-          }
         })
         .finally(() => {
           setIsCheckingOnboarding(false);
@@ -172,6 +155,8 @@ function RootLayoutNav() {
     previousUserId,
     fetchCategories,
     categoriesLoading,
+    isCheckingOnboarding,
+    hasCheckedOnboarding,
     isAuthRoute,
     isTabsRoute,
     pathname,
@@ -203,30 +188,87 @@ function RootLayoutNav() {
       return;
     }
 
-    // If categories are loaded and we're on auth screen, navigate immediately
-    // This handles existing users - don't wait for onboarding check
-    if (expenseCategoryCount > 0 && isAuthRoute && !isTabsRoute) {
-      const timer = setTimeout(() => {
-        router.replace("/(tabs)");
-      }, 100);
-      return () => clearTimeout(timer);
+    // Only navigate if we're on auth screen
+    if (!isAuthRoute) {
+      return;
     }
 
-    // If no categories yet, wait for onboarding check but with timeout
-    if (expenseCategoryCount === 0 && isAuthRoute && !isTabsRoute) {
-      if (isCheckingOnboarding || categoriesLoading || !hasCheckedOnboarding) {
-        // Set timeout to prevent getting stuck
-        const timeoutId = setTimeout(() => {
-          router.replace("/(onboarding)/select-categories" as any);
-        }, 2000);
-        return () => clearTimeout(timeoutId);
+    // Wait for onboarding check to complete before navigating
+    // This ensures categories are loaded before making navigation decisions
+    if (!hasCheckedOnboarding || isCheckingOnboarding || categoriesLoading) {
+      // Still set a timeout to prevent getting stuck if something goes wrong
+      // Use longer timeout on Android
+      const timeoutDuration = Platform.OS === "android" ? 4000 : 3000;
+      const timeoutId = setTimeout(() => {
+        // If we've been waiting too long, navigate based on current state
+        const currentCategories = useCategoryStore.getState().categories;
+        const currentExpenseCount = currentCategories.filter(
+          (cat) => cat.type === "expense"
+        ).length;
+        
+        const targetRoute = currentExpenseCount > 0 
+          ? "/(tabs)" 
+          : "/(onboarding)/select-categories";
+        
+        // Only navigate if we haven't already navigated to this route
+        if (lastNavigationRef.current !== targetRoute) {
+          lastNavigationRef.current = targetRoute;
+          navigationAttemptRef.current += 1;
+          
+          // Use InteractionManager on Android for better timing
+          if (Platform.OS === "android") {
+            InteractionManager.runAfterInteractions(() => {
+              router.replace(targetRoute as any);
+            });
+          } else {
+            router.replace(targetRoute as any);
+          }
+        }
+      }, timeoutDuration);
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Categories are loaded and onboarding check is complete - navigate based on result
+    const targetRoute = expenseCategoryCount > 0 
+      ? "/(tabs)" 
+      : "/(onboarding)/select-categories";
+    
+    // Only navigate if we haven't already navigated to this route
+    if (lastNavigationRef.current === targetRoute) {
+      return;
+    }
+
+    lastNavigationRef.current = targetRoute;
+    navigationAttemptRef.current += 1;
+
+    // Use longer delay on Android and InteractionManager for better reliability
+    const delay = Platform.OS === "android" ? 300 : 100;
+    
+    let timeoutId: NodeJS.Timeout | null = null;
+    let interactionHandle: any = null;
+
+    const navigate = () => {
+      router.replace(targetRoute as any);
+    };
+
+    if (Platform.OS === "android") {
+      // On Android, use InteractionManager to ensure navigation happens after all interactions
+      interactionHandle = InteractionManager.runAfterInteractions(() => {
+        timeoutId = setTimeout(navigate, delay);
+      });
+    } else {
+      // On iOS, simple timeout is sufficient
+      timeoutId = setTimeout(navigate, delay);
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-
-      const timer = setTimeout(() => {
-        router.replace("/(onboarding)/select-categories" as any);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
+      if (interactionHandle) {
+        interactionHandle.cancel();
+      }
+    };
   }, [
     user?.id,
     session?.access_token,
@@ -234,6 +276,7 @@ function RootLayoutNav() {
     categoriesLoading,
     isCheckingOnboarding,
     expenseCategoryCount,
+    categories.length, // Ensure effect runs when categories are loaded
     isAuthRoute,
     isTabsRoute,
     isOnboardingRoute,

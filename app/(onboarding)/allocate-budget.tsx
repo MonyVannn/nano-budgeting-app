@@ -415,7 +415,6 @@ export default function AllocateBudgetScreen() {
                       onBlur={() => setFocusedBudgetIndex(null)}
                     />
                   </View>
-                  <ChevronRight size={20} color={theme.textSecondary} />
                 </View>
               );
             })}
@@ -464,7 +463,6 @@ export default function AllocateBudgetScreen() {
                     onBlur={() => setFocusedBudgetIndex(null)}
                   />
                 </View>
-                <ChevronRight size={20} color={theme.textSecondary} />
               </View>
             );
           })}

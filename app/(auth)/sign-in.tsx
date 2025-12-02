@@ -1,17 +1,18 @@
 import { Text, View } from "@/components/Themed";
 import { useTheme } from "@/constants/ThemeContext";
 import { useBiometricAuth } from "@/hooks/useBiometricAuth";
-import { useAuthStore } from "@/store";
+import { useAuthStore, useCategoryStore } from "@/store";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  InteractionManager,
   View as RNView,
   ScrollView,
   StyleSheet,
@@ -21,8 +22,9 @@ import {
 
 export default function SignInScreen() {
   const { theme, themeMode } = useTheme();
-  const { signIn, signInWithBiometric, isLoading, hasBiometricCredentials } =
+  const { signIn, signInWithBiometric, isLoading, hasBiometricCredentials, user } =
     useAuthStore();
+  const { fetchCategories } = useCategoryStore();
   const { isAvailable, authenticate, biometricType } = useBiometricAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,6 +55,54 @@ export default function SignInScreen() {
     checkBiometricAvailability();
   }, [isAvailable, hasBiometricCredentials]);
 
+  // Track if we've already handled navigation for this user
+  const navigationHandledRef = React.useRef<string | null>(null);
+
+  // On Android, handle navigation when user signs in (fallback if direct navigation didn't work)
+  useEffect(() => {
+    if (Platform.OS === "android" && user?.id && navigationHandledRef.current !== user.id) {
+      // User just signed in, fetch categories and navigate
+      const handleNavigation = async () => {
+        // Mark as handled to prevent duplicate navigations
+        navigationHandledRef.current = user.id;
+        
+        try {
+          await fetchCategories(user.id);
+          
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => {
+              const categories = useCategoryStore.getState().categories;
+              const expenseCount = categories.filter(
+                (cat) => cat.type === "expense"
+              ).length;
+
+              // Only navigate if we're still on the sign-in screen
+              const currentPath = router.pathname || "";
+              if (currentPath.includes("sign-in") || currentPath.includes("(auth)")) {
+                if (expenseCount > 0) {
+                  router.replace("/(tabs)");
+                } else {
+                  router.replace("/(onboarding)/select-categories" as any);
+                }
+              }
+            }, 300);
+          });
+        } catch (error) {
+          console.error("Error in navigation fallback:", error);
+          // Reset on error so it can retry
+          navigationHandledRef.current = null;
+        }
+      };
+
+      // Small delay to ensure state is fully updated
+      const timer = setTimeout(handleNavigation, 500);
+      return () => clearTimeout(timer);
+    } else if (!user?.id) {
+      // Reset when user logs out
+      navigationHandledRef.current = null;
+    }
+  }, [user?.id, fetchCategories]);
+
   // Check if form is valid (both fields filled)
   const isFormValid = email.trim().length > 0 && password.trim().length > 0;
 
@@ -74,8 +124,37 @@ export default function SignInScreen() {
         setCanUseBiometric(hasCredentials);
       }
 
-      // Don't navigate directly - let root layout handle routing based on onboarding status
-      // router.replace("/(tabs)");
+      // On Android, explicitly fetch categories and navigate after a short delay
+      // This ensures state is updated before navigation
+      if (Platform.OS === "android") {
+        // Get the user from the store after sign-in
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.id) {
+          // Fetch categories first
+          try {
+            await fetchCategories(currentUser.id);
+          } catch (error) {
+            console.error("Error fetching categories:", error);
+          }
+
+          // Wait for state to propagate, then navigate
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => {
+              const categories = useCategoryStore.getState().categories;
+              const expenseCount = categories.filter(
+                (cat) => cat.type === "expense"
+              ).length;
+
+              if (expenseCount > 0) {
+                router.replace("/(tabs)");
+              } else {
+                router.replace("/(onboarding)/select-categories" as any);
+              }
+            }, 200);
+          });
+        }
+      }
+      // On iOS, let root layout handle navigation (it works fine there)
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Sign In Failed", error.message || "Please try again");
@@ -154,6 +233,33 @@ export default function SignInScreen() {
       // If biometric authentication succeeded, sign in with saved credentials
       await signInWithBiometric();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // On Android, explicitly fetch categories and navigate after a short delay
+      if (Platform.OS === "android") {
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.id) {
+          try {
+            await fetchCategories(currentUser.id);
+          } catch (error) {
+            console.error("Error fetching categories:", error);
+          }
+
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => {
+              const categories = useCategoryStore.getState().categories;
+              const expenseCount = categories.filter(
+                (cat) => cat.type === "expense"
+              ).length;
+
+              if (expenseCount > 0) {
+                router.replace("/(tabs)");
+              } else {
+                router.replace("/(onboarding)/select-categories" as any);
+              }
+            }, 200);
+          });
+        }
+      }
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(

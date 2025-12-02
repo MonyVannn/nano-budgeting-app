@@ -1,3 +1,4 @@
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { FABButton } from "@/components/FABButton";
 import { TabScreenWrapper } from "@/components/TabScreenWrapper";
 import { Text } from "@/components/Themed";
@@ -6,7 +7,13 @@ import { useAuthStore, useCategoryStore, useTransactionStore } from "@/store";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Platform,
   Pressable,
@@ -43,8 +50,13 @@ export default function DashboardScreen() {
     getTotalIncome,
     getTotalExpenses,
     getNetAmount,
+    isLoading: isLoadingTransactions,
   } = useTransactionStore();
-  const { categories, fetchCategories, isLoading } = useCategoryStore();
+  const {
+    categories,
+    fetchCategories,
+    isLoading: isLoadingCategories,
+  } = useCategoryStore();
 
   // Animated values for income expansion
   const heightAnimation = useSharedValue(0);
@@ -66,22 +78,45 @@ export default function DashboardScreen() {
     }
   }, [user]);
 
-  // Fetch data on mount and when screen comes into focus
+  // Track if we've fetched categories for this user
+  const categoriesFetchedRef = useRef<string | null>(null);
+
+  // Fetch categories only if not already loaded for this user
   useEffect(() => {
     if (user?.id) {
-      fetchCategories(user.id);
+      // Only fetch if:
+      // 1. Categories are empty (initial load)
+      // 2. User changed (different user logged in)
+      const userChanged = categoriesFetchedRef.current !== user.id;
+      const categoriesEmpty = categories.length === 0;
+
+      if (userChanged || categoriesEmpty) {
+        // Only fetch if not already loading
+        if (!isLoadingCategories) {
+          fetchCategories(user.id);
+          categoriesFetchedRef.current = user.id;
+        }
+      }
+    } else {
+      // Reset ref when user logs out
+      categoriesFetchedRef.current = null;
     }
-  }, [user?.id, fetchCategories]);
+  }, [user?.id, categories.length, fetchCategories, isLoadingCategories]);
 
   // Redirect to onboarding if user has no categories
   useEffect(() => {
-    if (user?.id && !isLoading && categories.length === 0) {
+    if (
+      user?.id &&
+      !isLoadingCategories &&
+      !isLoadingTransactions &&
+      categories.length === 0
+    ) {
       const timer = setTimeout(() => {
         router.replace("/(onboarding)/select-categories" as any);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [user?.id, isLoading, categories.length]);
+  }, [user?.id, isLoadingCategories, isLoadingTransactions, categories.length]);
 
   // Don't render if not authenticated
   if (!user) {
@@ -104,11 +139,16 @@ export default function DashboardScreen() {
     };
   }, [monthOffset]);
 
+  // Fetch all transactions once (no date filter) - the getTotalIncome/getTotalExpenses
+  // functions filter client-side, so we can fetch all data once and reuse it
   useEffect(() => {
     if (user?.id) {
-      fetchTransactions(user.id, currentMonth.start, currentMonth.end);
+      // Only fetch if we don't have transactions yet to avoid blocking tab switches
+      if (transactions.length === 0 && !isLoadingTransactions) {
+        fetchTransactions(user.id);
+      }
     }
-  }, [user?.id, currentMonth.start, currentMonth.end, fetchTransactions]);
+  }, [user?.id, transactions.length, isLoadingTransactions, fetchTransactions]);
 
   // Calculate monthly totals
   const monthlyIncome = useMemo(
@@ -163,19 +203,25 @@ export default function DashboardScreen() {
   const totalActual = monthlyExpenses;
   const totalDifference = totalBudgeted - totalActual;
 
-  // Get category name helper
-  const getCategoryName = (categoryId: string | null) => {
-    if (!categoryId) return "Uncategorized";
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category?.name || "Unknown";
-  };
+  // Get category name helper - memoized to prevent recreation
+  const getCategoryName = useCallback(
+    (categoryId: string | null) => {
+      if (!categoryId) return "Uncategorized";
+      const category = categories.find((cat) => cat.id === categoryId);
+      return category?.name || "Unknown";
+    },
+    [categories]
+  );
 
-  // Recent transactions (last 5)
+  // Recent transactions (last 5) - current month only
   const recentTransactions = useMemo(() => {
     return [...transactions]
+      .filter(
+        (txn) => txn.date >= currentMonth.start && txn.date <= currentMonth.end
+      )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
-  }, [transactions]);
+  }, [transactions, currentMonth]);
 
   // Calculate category spending - sorted by most actual (spent) first
   const categoriesWithSpending = useMemo(() => {
@@ -280,13 +326,33 @@ export default function DashboardScreen() {
     transform: [{ rotate: `${summaryChevronRotation.value}deg` }],
   }));
 
-  const handleCategoryPress = (categoryId: string) => {
+  const handleCategoryPress = useCallback((categoryId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: "/category-detail",
       params: { id: categoryId },
     });
-  };
+  }, []);
+
+  const handlePreviousMonth = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMonthOffset((prev) => prev - 1);
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMonthOffset((prev) => prev + 1);
+  }, []);
+
+  const handleIncomeToggle = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIncomeExpanded((prev) => !prev);
+  }, []);
+
+  const handleSummaryToggle = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSummaryExpanded((prev) => !prev);
+  }, []);
 
   const styles = useMemo(
     () =>
@@ -498,9 +564,7 @@ export default function DashboardScreen() {
           width: 90,
           textAlign: "right",
         },
-        categoriesSection: {
-          marginBottom: 16,
-        },
+        categoriesSection: {},
         categoriesSectionTitle: {
           fontSize: 16,
           fontWeight: "600",
@@ -751,370 +815,362 @@ export default function DashboardScreen() {
     [headerHeight, theme.background]
   );
 
+  // Show skeleton while loading
+  const isLoading = isLoadingCategories || isLoadingTransactions;
+
+  if (isLoading) {
+    return (
+      <TabScreenWrapper screenIndex={0}>
+        <DashboardSkeleton />
+      </TabScreenWrapper>
+    );
+  }
+
   return (
     <TabScreenWrapper screenIndex={0}>
       <View style={styles.container}>
         {/* Sticky Header */}
         <View style={stickyHeaderStyle}>
-        <View style={styles.header}>
-          <SvgXml xml={logoXml} width={110} height={30} />
-          <View style={styles.monthControls}>
-            <Pressable
-              style={styles.monthButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setMonthOffset((prev) => prev - 1);
-              }}
-            >
-              <ChevronLeft size={20} color={theme.text} />
-            </Pressable>
-            <View style={styles.monthLabelContainer}>
-              <Text style={styles.monthLabel}>{currentMonth.label}</Text>
+          <View style={styles.header}>
+            <SvgXml xml={logoXml} width={110} height={30} />
+            <View style={styles.monthControls}>
+              <Pressable
+                style={styles.monthButton}
+                onPress={handlePreviousMonth}
+              >
+                <ChevronLeft size={20} color={theme.text} />
+              </Pressable>
+              <View style={styles.monthLabelContainer}>
+                <Text style={styles.monthLabel}>{currentMonth.label}</Text>
+              </View>
+              <Pressable style={styles.monthButton} onPress={handleNextMonth}>
+                <ChevronRight size={20} color={theme.text} />
+              </Pressable>
             </View>
-            <Pressable
-              style={styles.monthButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setMonthOffset((prev) => prev + 1);
-              }}
-            >
-              <ChevronRight size={20} color={theme.text} />
-            </Pressable>
           </View>
         </View>
-      </View>
 
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={contentContainerStyle}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Income Dropdown */}
-        <View style={styles.incomeCardWrapper}>
-          <View style={styles.incomeCard}>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setIncomeExpanded(!incomeExpanded);
-              }}
-              activeOpacity={1}
-            >
-              <View style={styles.incomeHeader}>
-                <View style={styles.incomeLabelContainer}>
-                  <Text style={styles.incomeLabel}>Ending Balance</Text>
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={contentContainerStyle}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Income Dropdown */}
+          <View style={styles.incomeCardWrapper}>
+            <View style={styles.incomeCard}>
+              <TouchableOpacity onPress={handleIncomeToggle} activeOpacity={1}>
+                <View style={styles.incomeHeader}>
+                  <View style={styles.incomeLabelContainer}>
+                    <Text style={styles.incomeLabel}>Ending Balance</Text>
+                  </View>
+                  <View style={styles.incomeLabelContainer}>
+                    <Text
+                      style={[
+                        styles.incomeAmount,
+                        {
+                          color:
+                            endingBalance >= 0 ? theme.income : theme.expense,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {endingBalance >= 0 ? "+" : "-"}$
+                      {Math.abs(endingBalance).toFixed(2)}
+                    </Text>
+                    <Animated.View style={animatedChevronStyle}>
+                      <ChevronDown size={20} color={theme.textSecondary} />
+                    </Animated.View>
+                  </View>
                 </View>
-                <View style={styles.incomeLabelContainer}>
-                  <Text
-                    style={[
-                      styles.incomeAmount,
-                      {
-                        color:
-                          endingBalance >= 0 ? theme.income : theme.expense,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {endingBalance >= 0 ? "+" : "-"}$
-                    {Math.abs(endingBalance).toFixed(2)}
-                  </Text>
-                  <Animated.View style={animatedChevronStyle}>
+
+                <Animated.View style={animatedDetailsStyle}>
+                  <View style={styles.incomeDetails}>
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Starting Balance</Text>
+                        <View
+                          style={[
+                            styles.indicator,
+                            { backgroundColor: theme.divider },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.detailAmount}>
+                        {startingBalance >= 0 ? "+" : "-"}$
+                        {Math.abs(startingBalance).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={[styles.detailRow, styles.detailRowLast]}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Amount Saved</Text>
+                        <View
+                          style={[
+                            styles.indicator,
+                            {
+                              backgroundColor:
+                                amountSaved >= 0
+                                  ? theme.indicatorGreen
+                                  : theme.indicatorRed,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.detailAmount,
+                          {
+                            color:
+                              amountSaved >= 0 ? theme.income : theme.expense,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {amountSaved >= 0 ? "+" : "-"}$
+                        {Math.abs(amountSaved).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </Animated.View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Monthly Summary - Collapsible */}
+          <View style={styles.summaryCardWrapper}>
+            <View style={styles.summaryCard}>
+              <TouchableOpacity onPress={handleSummaryToggle} activeOpacity={1}>
+                <View style={styles.incomeHeader}>
+                  <View style={styles.incomeLabelContainer}>
+                    <Text style={styles.incomeLabel}>Monthly Summary</Text>
+                  </View>
+                  <Animated.View style={summaryChevronStyle}>
                     <ChevronDown size={20} color={theme.textSecondary} />
                   </Animated.View>
                 </View>
-              </View>
 
-              <Animated.View style={animatedDetailsStyle}>
-                <View style={styles.incomeDetails}>
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Starting Balance</Text>
-                      <View
-                        style={[
-                          styles.indicator,
-                          { backgroundColor: theme.divider },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.detailAmount}>
-                      {startingBalance >= 0 ? "+" : "-"}$
-                      {Math.abs(startingBalance).toFixed(2)}
+                <View style={styles.summaryBudgetColumn}>
+                  <View style={styles.summaryColumnRight}>
+                    <Text style={styles.columnLabel}>Expected</Text>
+                    <Text style={styles.columnValue} numberOfLines={1}>
+                      ${totalBudgeted.toFixed(2)}
                     </Text>
                   </View>
-                  <View style={[styles.detailRow, styles.detailRowLast]}>
-                    <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Amount Saved</Text>
-                      <View
-                        style={[
-                          styles.indicator,
-                          {
-                            backgroundColor:
-                              amountSaved >= 0
-                                ? theme.indicatorGreen
-                                : theme.indicatorRed,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.detailAmount,
-                        {
-                          color:
-                            amountSaved >= 0 ? theme.income : theme.expense,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {amountSaved >= 0 ? "+" : "-"}$
-                      {Math.abs(amountSaved).toFixed(2)}
+                  <View style={styles.summaryColumnRight}>
+                    <Text style={styles.columnLabel}>Actual</Text>
+                    <Text style={styles.columnValue} numberOfLines={1}>
+                      ${totalActual.toFixed(2)}
                     </Text>
                   </View>
                 </View>
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-        </View>
 
-        {/* Monthly Summary - Collapsible */}
-        <View style={styles.summaryCardWrapper}>
-          <View style={styles.summaryCard}>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSummaryExpanded(!summaryExpanded);
-              }}
-              activeOpacity={1}
-            >
-              <View style={styles.incomeHeader}>
-                <View style={styles.incomeLabelContainer}>
-                  <Text style={styles.incomeLabel}>Monthly Summary</Text>
-                </View>
-                <Animated.View style={summaryChevronStyle}>
-                  <ChevronDown size={20} color={theme.textSecondary} />
-                </Animated.View>
-              </View>
-
-              <View style={styles.summaryBudgetColumn}>
-                <View style={styles.summaryColumnRight}>
-                  <Text style={styles.columnLabel}>Expected</Text>
-                  <Text style={styles.columnValue} numberOfLines={1}>
-                    ${totalBudgeted.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.summaryColumnRight}>
-                  <Text style={styles.columnLabel}>Actual</Text>
-                  <Text style={styles.columnValue} numberOfLines={1}>
-                    ${totalActual.toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-
-              <Animated.View style={summaryDetailsStyle}>
-                <View style={styles.incomeDetails}>
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Difference</Text>
-                      <View
+                <Animated.View style={summaryDetailsStyle}>
+                  <View style={styles.incomeDetails}>
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Difference</Text>
+                        <View
+                          style={[
+                            styles.indicator,
+                            {
+                              backgroundColor:
+                                totalDifference >= 0
+                                  ? theme.indicatorGreen
+                                  : theme.indicatorRed,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
                         style={[
-                          styles.indicator,
+                          styles.detailAmount,
                           {
-                            backgroundColor:
+                            color:
                               totalDifference >= 0
-                                ? theme.indicatorGreen
-                                : theme.indicatorRed,
+                                ? theme.income
+                                : theme.expense,
                           },
                         ]}
-                      />
+                        numberOfLines={1}
+                      >
+                        {totalDifference >= 0 ? "+" : "-"}$
+                        {Math.abs(totalDifference).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Month</Text>
+                      </View>
+                      <Text style={styles.detailAmount} numberOfLines={1}>
+                        {currentMonth.label}
+                      </Text>
+                    </View>
+                    <View style={[styles.detailRow, styles.detailRowLast]}>
+                      <View style={styles.detailLeft}>
+                        <Text style={styles.detailLabel}>Days Left</Text>
+                      </View>
+                      <Text style={styles.detailAmount} numberOfLines={1}>
+                        {daysLeftInMonth > 0
+                          ? `${daysLeftInMonth} day${
+                              daysLeftInMonth === 1 ? "" : "s"
+                            }`
+                          : "Last day"}
+                      </Text>
+                    </View>
+                  </View>
+                </Animated.View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Budget Alerts */}
+          {budgetAlerts.length > 0 && (
+            <View style={styles.summaryCardWrapper}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.sectionTitle}>Budget Alerts</Text>
+                {budgetAlerts.map((alert, index) => (
+                  <Pressable
+                    key={alert.id}
+                    style={[
+                      styles.alertItem,
+                      index === budgetAlerts.length - 1 && styles.alertItemLast,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      handleCategoryPress(alert.id);
+                    }}
+                  >
+                    <View style={styles.alertLeft}>
+                      <Text style={styles.alertCategoryName}>{alert.name}</Text>
+                      <Text style={styles.alertOverAmount}>
+                        Over by ${Math.abs(alert.difference).toFixed(2)}
+                      </Text>
+                    </View>
+                    <Text style={styles.alertAmount}>
+                      ${alert.actual.toFixed(2)} / ${alert.budgeted.toFixed(2)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Recent Transactions */}
+          {recentTransactions.length > 0 && (
+            <View style={styles.summaryCardWrapper}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.sectionTitle}>Recent Transactions</Text>
+                {recentTransactions.map((transaction, index) => (
+                  <Pressable
+                    key={transaction.id}
+                    style={[
+                      styles.recentTransactionItem,
+                      index === recentTransactions.length - 1 &&
+                        styles.recentTransactionItemLast,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push({
+                        pathname: "/transaction-detail",
+                        params: { id: transaction.id },
+                      });
+                    }}
+                  >
+                    <View style={styles.recentTransactionLeft}>
+                      <Text style={styles.recentTransactionDescription}>
+                        {transaction.description || "No description"}
+                      </Text>
+                      <View style={styles.recentTransactionMeta}>
+                        <Text style={styles.recentTransactionCategory}>
+                          {getCategoryName(transaction.category_id)}
+                        </Text>
+                        <Text style={{ color: theme.textTertiary }}>•</Text>
+                        <Text style={styles.recentTransactionDate}>
+                          {new Date(transaction.date).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
+                        </Text>
+                      </View>
                     </View>
                     <Text
                       style={[
-                        styles.detailAmount,
+                        styles.recentTransactionAmount,
                         {
-                          color:
-                            totalDifference >= 0 ? theme.income : theme.expense,
+                          color: transaction.is_expense
+                            ? theme.expense
+                            : theme.income,
                         },
                       ]}
-                      numberOfLines={1}
                     >
-                      {totalDifference >= 0 ? "+" : "-"}$
-                      {Math.abs(totalDifference).toFixed(2)}
+                      {transaction.is_expense ? "-" : "+"}$
+                      {transaction.amount.toFixed(2)}
                     </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Month</Text>
-                    </View>
-                    <Text style={styles.detailAmount} numberOfLines={1}>
-                      {currentMonth.label}
-                    </Text>
-                  </View>
-                  <View style={[styles.detailRow, styles.detailRowLast]}>
-                    <View style={styles.detailLeft}>
-                      <Text style={styles.detailLabel}>Days Left</Text>
-                    </View>
-                    <Text style={styles.detailAmount} numberOfLines={1}>
-                      {daysLeftInMonth > 0
-                        ? `${daysLeftInMonth} day${
-                            daysLeftInMonth === 1 ? "" : "s"
-                          }`
-                        : "Last day"}
-                    </Text>
-                  </View>
-                </View>
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Budget Alerts */}
-        {budgetAlerts.length > 0 && (
-          <View style={styles.summaryCardWrapper}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.sectionTitle}>Budget Alerts</Text>
-              {budgetAlerts.map((alert, index) => (
-                <Pressable
-                  key={alert.id}
-                  style={[
-                    styles.alertItem,
-                    index === budgetAlerts.length - 1 && styles.alertItemLast,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    handleCategoryPress(alert.id);
-                  }}
-                >
-                  <View style={styles.alertLeft}>
-                    <Text style={styles.alertCategoryName}>{alert.name}</Text>
-                    <Text style={styles.alertOverAmount}>
-                      Over by ${Math.abs(alert.difference).toFixed(2)}
-                    </Text>
-                  </View>
-                  <Text style={styles.alertAmount}>
-                    ${alert.actual.toFixed(2)} / ${alert.budgeted.toFixed(2)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Recent Transactions */}
-        {recentTransactions.length > 0 && (
-          <View style={styles.summaryCardWrapper}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.sectionTitle}>Recent Transactions</Text>
-              {recentTransactions.map((transaction, index) => (
-                <Pressable
-                  key={transaction.id}
-                  style={[
-                    styles.recentTransactionItem,
-                    index === recentTransactions.length - 1 &&
-                      styles.recentTransactionItemLast,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push({
-                      pathname: "/transaction-detail",
-                      params: { id: transaction.id },
-                    });
-                  }}
-                >
-                  <View style={styles.recentTransactionLeft}>
-                    <Text style={styles.recentTransactionDescription}>
-                      {transaction.description || "No description"}
-                    </Text>
-                    <View style={styles.recentTransactionMeta}>
-                      <Text style={styles.recentTransactionCategory}>
-                        {getCategoryName(transaction.category_id)}
-                      </Text>
-                      <Text style={{ color: theme.textTertiary }}>•</Text>
-                      <Text style={styles.recentTransactionDate}>
-                        {new Date(transaction.date).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                          }
-                        )}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text
-                    style={[
-                      styles.recentTransactionAmount,
-                      {
-                        color: transaction.is_expense
-                          ? theme.expense
-                          : theme.income,
-                      },
-                    ]}
-                  >
-                    {transaction.is_expense ? "-" : "+"}$
-                    {transaction.amount.toFixed(2)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Categories Section */}
-        <View style={styles.categoriesSection}>
-          <View style={styles.categoryListWrapper}>
-            <View style={styles.categoryList}>
-              {/* Header */}
-              <View style={styles.categoryHeader}>
-                <View style={styles.categoryHeaderLeft}>
-                  <Text style={styles.categoryHeaderTitle} numberOfLines={1}>
-                    Category
-                  </Text>
-                </View>
-                <View style={styles.categoryHeaderRight}>
-                  <Text style={styles.categoryHeaderLabel} numberOfLines={1}>
-                    Expected
-                  </Text>
-                  <Text style={styles.categoryHeaderLabel} numberOfLines={1}>
-                    Actual
-                  </Text>
-                </View>
+                  </Pressable>
+                ))}
               </View>
-              {/* Category Items */}
-              {categoriesWithSpending.length > 0 ? (
-                categoriesWithSpending.map((cat, index) => (
-                  <CategoryItem
-                    key={cat.id}
-                    categoryId={cat.id}
-                    name={cat.name}
-                    budgeted={cat.budgeted}
-                    actual={cat.actual}
-                    difference={cat.difference}
-                    percentage={cat.percentage}
-                    isLast={index === categoriesWithSpending.length - 1}
-                  />
-                ))
-              ) : (
-                <View style={styles.categoryItem}>
-                  <Text
-                    style={[
-                      styles.categoryName,
-                      {
-                        color: theme.textSecondary,
-                        textAlign: "center",
-                        flex: 1,
-                      },
-                    ]}
-                  >
-                    No categories yet
-                  </Text>
+            </View>
+          )}
+
+          {/* Categories Section */}
+          <View style={styles.categoriesSection}>
+            <View style={styles.categoryListWrapper}>
+              <View style={styles.categoryList}>
+                {/* Header */}
+                <View style={styles.categoryHeader}>
+                  <View style={styles.categoryHeaderLeft}>
+                    <Text style={styles.categoryHeaderTitle} numberOfLines={1}>
+                      Category
+                    </Text>
+                  </View>
+                  <View style={styles.categoryHeaderRight}>
+                    <Text style={styles.categoryHeaderLabel} numberOfLines={1}>
+                      Expected
+                    </Text>
+                    <Text style={styles.categoryHeaderLabel} numberOfLines={1}>
+                      Actual
+                    </Text>
+                  </View>
                 </View>
-              )}
+                {/* Category Items */}
+                {categoriesWithSpending.length > 0 ? (
+                  categoriesWithSpending.map((cat, index) => (
+                    <CategoryItem
+                      key={cat.id}
+                      categoryId={cat.id}
+                      name={cat.name}
+                      budgeted={cat.budgeted}
+                      actual={cat.actual}
+                      difference={cat.difference}
+                      percentage={cat.percentage}
+                      isLast={index === categoriesWithSpending.length - 1}
+                    />
+                  ))
+                ) : (
+                  <View style={styles.categoryItem}>
+                    <Text
+                      style={[
+                        styles.categoryName,
+                        {
+                          color: theme.textSecondary,
+                          textAlign: "center",
+                          flex: 1,
+                        },
+                      ]}
+                    >
+                      No categories yet
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={{ height: 120 }} />
-      </ScrollView>
+          <View style={{ height: 120 }} />
+        </ScrollView>
 
         {/* FAB Button */}
         <FABButton
