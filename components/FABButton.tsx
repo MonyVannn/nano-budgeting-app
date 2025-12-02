@@ -1,6 +1,7 @@
 import { useTheme } from "@/constants/ThemeContext";
 import * as Haptics from "expo-haptics";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Plus } from "lucide-react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface FABButtonProps {
@@ -35,11 +36,6 @@ export function FABButton({ onPress, bottomOffset = 50 }: FABButtonProps) {
       justifyContent: "center",
       alignItems: "center",
     },
-    fabIcon: {
-      fontSize: 32,
-      fontWeight: "300",
-      color: theme.text,
-    },
   });
 
   return (
@@ -52,7 +48,7 @@ export function FABButton({ onPress, bottomOffset = 50 }: FABButtonProps) {
         }}
         activeOpacity={1}
       >
-        <Text style={styles.fabIcon}>+</Text>
+        <Plus size={28} color={theme.text} strokeWidth={2} />
       </TouchableOpacity>
     </View>
   );

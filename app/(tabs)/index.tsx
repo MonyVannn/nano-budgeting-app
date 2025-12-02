@@ -1169,7 +1169,7 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          <View style={{ height: 120 }} />
+          <View style={{ height: 40 }} />
         </ScrollView>
 
         {/* FAB Button */}

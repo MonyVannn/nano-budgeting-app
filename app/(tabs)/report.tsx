@@ -145,7 +145,7 @@ export default function ReportScreen() {
           backgroundColor: theme.background,
         },
         contentContainer: {
-          paddingTop: Platform.OS === "ios" ? insets.top + 80 : 80,
+          paddingTop: Platform.OS === "ios" ? insets.top + 80 : 100,
           paddingBottom: 40,
           gap: 24,
         },
