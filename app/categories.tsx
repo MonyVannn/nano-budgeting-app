@@ -688,7 +688,7 @@ export default function CategoriesScreen() {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingTop: Platform.OS === "ios" ? insets.top + 10 : 20,
+          paddingTop: Platform.OS === "ios" ? insets.top + 10 : 40,
           paddingBottom: 16,
           paddingHorizontal: 20,
         },
@@ -955,7 +955,7 @@ export default function CategoriesScreen() {
     [theme, insets]
   );
 
-  const headerHeight = Platform.OS === "ios" ? insets.top : 100;
+  const headerHeight = Platform.OS === "ios" ? insets.top : 20;
   const contentContainerStyle = useMemo(
     () => ({
       paddingTop: headerHeight,

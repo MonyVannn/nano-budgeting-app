@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   runOnJS,
@@ -97,7 +97,7 @@ export default function AddTransactionScreen() {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "flex-end",
-      paddingTop: 20,
+      paddingTop: Platform.OS === "ios" ? 20 : 40,
       paddingHorizontal: 20,
       paddingBottom: 20,
     },

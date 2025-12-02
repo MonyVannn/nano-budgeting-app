@@ -4,11 +4,12 @@ import {
   ThemeProvider as NavigationThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
+import * as NavigationBar from "expo-navigation-bar";
 import { router, Stack, usePathname, useSegments } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useMemo, useState, useRef } from "react";
-import { Platform, InteractionManager } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { InteractionManager, Platform } from "react-native";
 import "react-native-reanimated";
 
 import { ThemeProvider, useTheme } from "@/constants/ThemeContext";
@@ -128,7 +129,12 @@ function RootLayoutNav() {
 
     // Only check onboarding if we have a user, aren't already checking, and categories aren't loading
     // Also ensure we haven't already checked for this user
-    if (user?.id && !isCheckingOnboarding && !categoriesLoading && !hasCheckedOnboarding) {
+    if (
+      user?.id &&
+      !isCheckingOnboarding &&
+      !categoriesLoading &&
+      !hasCheckedOnboarding
+    ) {
       setIsCheckingOnboarding(true);
       fetchCategories(user.id)
         .then(() => {
@@ -205,16 +211,17 @@ function RootLayoutNav() {
         const currentExpenseCount = currentCategories.filter(
           (cat) => cat.type === "expense"
         ).length;
-        
-        const targetRoute = currentExpenseCount > 0 
-          ? "/(tabs)" 
-          : "/(onboarding)/select-categories";
-        
+
+        const targetRoute =
+          currentExpenseCount > 0
+            ? "/(tabs)"
+            : "/(onboarding)/select-categories";
+
         // Only navigate if we haven't already navigated to this route
         if (lastNavigationRef.current !== targetRoute) {
           lastNavigationRef.current = targetRoute;
           navigationAttemptRef.current += 1;
-          
+
           // Use InteractionManager on Android for better timing
           if (Platform.OS === "android") {
             InteractionManager.runAfterInteractions(() => {
@@ -229,10 +236,9 @@ function RootLayoutNav() {
     }
 
     // Categories are loaded and onboarding check is complete - navigate based on result
-    const targetRoute = expenseCategoryCount > 0 
-      ? "/(tabs)" 
-      : "/(onboarding)/select-categories";
-    
+    const targetRoute =
+      expenseCategoryCount > 0 ? "/(tabs)" : "/(onboarding)/select-categories";
+
     // Only navigate if we haven't already navigated to this route
     if (lastNavigationRef.current === targetRoute) {
       return;
@@ -243,7 +249,7 @@ function RootLayoutNav() {
 
     // Use longer delay on Android and InteractionManager for better reliability
     const delay = Platform.OS === "android" ? 300 : 100;
-    
+
     let timeoutId: NodeJS.Timeout | null = null;
     let interactionHandle: any = null;
 
@@ -296,6 +302,16 @@ function RootLayoutNav() {
       notification: theme.accent,
     },
   };
+
+  // Configure Android navigation bar theme
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      NavigationBar.setBackgroundColorAsync(theme.background);
+      NavigationBar.setButtonStyleAsync(
+        themeMode === "light" ? "dark" : "light"
+      );
+    }
+  }, [themeMode, theme.background]);
 
   return (
     <NavigationThemeProvider value={customTheme}>
